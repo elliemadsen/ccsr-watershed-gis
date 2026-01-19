@@ -1,0 +1,145 @@
+{
+    "metadata": {
+        ".zattrs": {},
+        ".zgroup": {
+            "zarr_format": 2
+        },
+        "__xarray_dataarray_variable__/.zarray": {
+            "chunks": [
+                422,
+                639
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<i2",
+            "fill_value": 32767,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                1688,
+                2556
+            ],
+            "zarr_format": 2
+        },
+        "__xarray_dataarray_variable__/.zattrs": {
+            "AREA_OR_POINT": "Area",
+            "DataType": "Generic",
+            "RepresentationType": "THEMATIC",
+            "STATISTICS_COVARIANCES": 9853.26608856549,
+            "STATISTICS_MAXIMUM": 1022,
+            "STATISTICS_MEAN": 577.4563924911,
+            "STATISTICS_MINIMUM": 342,
+            "STATISTICS_SKIPFACTORX": 1,
+            "STATISTICS_SKIPFACTORY": 1,
+            "STATISTICS_STDDEV": 99.263619159113,
+            "_ARRAY_DIMENSIONS": [
+                "y",
+                "x"
+            ],
+            "add_offset": 0.0,
+            "coordinates": "band",
+            "grid_mapping": "spatial_ref",
+            "scale_factor": 1.0
+        },
+        "band/.zarray": {
+            "chunks": [],
+            "compressor": null,
+            "dtype": "<i8",
+            "fill_value": null,
+            "filters": null,
+            "order": "C",
+            "shape": [],
+            "zarr_format": 2
+        },
+        "band/.zattrs": {
+            "_ARRAY_DIMENSIONS": []
+        },
+        "spatial_ref/.zarray": {
+            "chunks": [],
+            "compressor": null,
+            "dtype": "<i8",
+            "fill_value": null,
+            "filters": null,
+            "order": "C",
+            "shape": [],
+            "zarr_format": 2
+        },
+        "spatial_ref/.zattrs": {
+            "GeoTransform": "468538.0155336172 26.624359198878512 0.0 4701217.677200442 0.0 -26.624359198878476",
+            "_ARRAY_DIMENSIONS": [],
+            "crs_wkt": "PROJCS[\"NAD83 / UTM zone 18N\",GEOGCS[\"NAD83\",DATUM[\"North_American_Datum_1983\",SPHEROID[\"GRS 1980\",6378137,298.257222101004,AUTHORITY[\"EPSG\",\"7019\"]],AUTHORITY[\"EPSG\",\"6269\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4269\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",0],PARAMETER[\"central_meridian\",-75],PARAMETER[\"scale_factor\",0.9996],PARAMETER[\"false_easting\",500000],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"26918\"]]",
+            "false_easting": 500000.0,
+            "false_northing": 0.0,
+            "geographic_crs_name": "NAD83",
+            "grid_mapping_name": "transverse_mercator",
+            "horizontal_datum_name": "North American Datum 1983",
+            "inverse_flattening": 298.257222101004,
+            "latitude_of_projection_origin": 0.0,
+            "longitude_of_central_meridian": -75.0,
+            "longitude_of_prime_meridian": 0.0,
+            "prime_meridian_name": "Greenwich",
+            "projected_crs_name": "NAD83 / UTM zone 18N",
+            "reference_ellipsoid_name": "GRS 1980",
+            "scale_factor_at_central_meridian": 0.9996,
+            "semi_major_axis": 6378137.0,
+            "semi_minor_axis": 6356752.314140356,
+            "spatial_ref": "PROJCS[\"NAD83 / UTM zone 18N\",GEOGCS[\"NAD83\",DATUM[\"North_American_Datum_1983\",SPHEROID[\"GRS 1980\",6378137,298.257222101004,AUTHORITY[\"EPSG\",\"7019\"]],AUTHORITY[\"EPSG\",\"6269\"]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4269\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",0],PARAMETER[\"central_meridian\",-75],PARAMETER[\"scale_factor\",0.9996],PARAMETER[\"false_easting\",500000],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"EPSG\",\"26918\"]]"
+        },
+        "x/.zarray": {
+            "chunks": [
+                2556
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                2556
+            ],
+            "zarr_format": 2
+        },
+        "x/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "x"
+            ]
+        },
+        "y/.zarray": {
+            "chunks": [
+                1688
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                1688
+            ],
+            "zarr_format": 2
+        },
+        "y/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "y"
+            ]
+        }
+    },
+    "zarr_consolidated_format": 1
+}
