@@ -1,0 +1,20 @@
+{
+    "AREA_OR_POINT": "Area",
+    "DataType": "Generic",
+    "RepresentationType": "THEMATIC",
+    "STATISTICS_COVARIANCES": 9853.26608856549,
+    "STATISTICS_MAXIMUM": 1022,
+    "STATISTICS_MEAN": 577.4563924911,
+    "STATISTICS_MINIMUM": 342,
+    "STATISTICS_SKIPFACTORX": 1,
+    "STATISTICS_SKIPFACTORY": 1,
+    "STATISTICS_STDDEV": 99.263619159113,
+    "_ARRAY_DIMENSIONS": [
+        "y",
+        "x"
+    ],
+    "add_offset": 0.0,
+    "coordinates": "band",
+    "grid_mapping": "spatial_ref",
+    "scale_factor": 1.0
+}
