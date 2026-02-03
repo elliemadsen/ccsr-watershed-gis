@@ -405,6 +405,6 @@ plotter.show()
 
 # Then export using off-screen plotter (if enabled)
 if args.export:
-    filename = f"outputs/watershed_dem_{args.color}"
+    filename = f"pyvista_outputs/watershed_dem_{args.color}"
     export_plotter.export_html(filename + ".html")
     export_plotter.screenshot(filename + ".png")
