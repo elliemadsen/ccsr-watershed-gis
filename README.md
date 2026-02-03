@@ -1,8 +1,59 @@
 # ccsr-watershed-gis
 
-3D terrain visualization with PyVista, draping DEM elevation and multiple raster overlays (NLCD landcover, CDL cropland, runoff coefficients).
+3D terrain visualization of Catskills watershed with multiple data layers.
 
-## Usage
+## Browser Visualization (Three.js)
+
+Interactive 3D terrain viewer that runs entirely in the browser with real-time controls for data layers, vertical exaggeration, and resolution sampling.
+
+### Setup
+
+1. Generate data files from the `precipitation-viz` directory:
+
+```bash
+cd precipitation-viz
+conda run -n geo python prepare_dem.py
+conda run -n geo python prepare_cdl.py
+conda run -n geo python prepare_nlcd.py
+conda run -n geo python prepare_runoff.py
+```
+
+2. Open `precipitation-viz/index.html` in a web browser
+
+### Features
+
+- **Data Layers**: Switch between Elevation, Cropland Data Layer (CDL), Land Cover (NLCD), Runoff Coefficient, or None
+- **Vertical Exaggeration**: 1x to 5x real-time adjustment
+- **Resolution Sampling**: 1x (full 2556×1688) to 8x downsampling for performance
+- **Wireframe Mode**: Toggle mesh display
+- **Interactive Legend**: Shows value ranges for elevation and runoff coefficient layers
+- **Camera Controls**: Orbit, pan, and zoom with mouse
+
+### Data Files
+
+Generated JSON files (loaded by browser):
+
+- `dem_data.json` (27 MB) - Elevation data
+- `cdl_data.json` (21 MB) - Cropland classification with colormap
+- `nlcd_data.json` (17 MB) - Land cover with colormap
+- `runoff_data.json` (46 MB) - Runoff coefficients
+
+All data automatically reprojected to match DEM coordinate system (EPSG:26918).
+
+### Data Sources
+
+- **DEM**: `DEM/tif/DEM_UTM.tif` (EPSG:26918, 2556×1688 pixels)
+- **NLCD**: `NLCD/nlcd2016_ny.tif` (2016 land cover, 15 classes)
+- **CDL**: `CDL/CDL_2020_36.tif` (2020 cropland data, 41 classes)
+- **Runoff**: `runoff_coefficient/runoff_coefficient.tif` (0.000-0.601 range)
+
+---
+
+## PyVista Visualization
+
+Desktop 3D terrain visualization with PyVista, draping DEM elevation and multiple raster overlays (NLCD landcover, CDL cropland, runoff coefficients).
+
+### Usage
 
 From the repository root:
 
@@ -32,13 +83,6 @@ The default interactive mode provides:
 - **Color legend**: Shows classification colors for categorical data (NLCD/CDL) or continuous scale (runoff/elevation)
 
 All categorical rasters (NLCD, CDL) use nearest-neighbor resampling to preserve classification values and display embedded colormaps matching QGIS rendering.
-
-### Data Sources
-
-- **DEM**: `DEM/tif/DEM_UTM.tif` (EPSG:26918)
-- **NLCD**: `NLCD/nlcd2016_ny.tif` (2016 landcover)
-- **CDL**: `CDL/CDL_2020_36.tif` (2020 cropland data)
-- **Runoff**: `runoff_coefficient/runoff_coefficient.tif`
 
 ### Examples
 
