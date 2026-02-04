@@ -159,6 +159,14 @@ function setupScene() {
 
 // Create terrain mesh from DEM
 function createTerrain() {
+    // Store current camera state if terrain already exists
+    let savedCameraPosition = null;
+    let savedCameraTarget = null;
+    if (terrainMesh) {
+        savedCameraPosition = camera.position.clone();
+        savedCameraTarget = controls.target.clone();
+    }
+    
     const fullWidth = demData.width;
     const fullHeight = demData.height;
     
@@ -270,8 +278,13 @@ function createTerrain() {
     terrainMesh.rotation.x = -Math.PI / 2; // Rotate to horizontal
     scene.add(terrainMesh);
     
-    // Center camera on terrain
-    controls.target.set(0, 0, 0);
+    // Restore camera state if it was saved, otherwise center on terrain
+    if (savedCameraPosition && savedCameraTarget) {
+        camera.position.copy(savedCameraPosition);
+        controls.target.copy(savedCameraTarget);
+    } else {
+        controls.target.set(0, 0, 0);
+    }
     controls.update();
 }
 
