@@ -60,6 +60,16 @@
         margin-bottom: 5px;
       }
 
+      .control-group.checkbox-group label {
+        display: inline;
+        margin-left: 5px;
+        margin-bottom: 0;
+      }
+
+      .control-group.checkbox-group input[type="checkbox"] {
+        vertical-align: middle;
+      }
+
       .control-group input[type="range"] {
         width: 100%;
       }
@@ -140,6 +150,30 @@
         color: #666;
       }
 
+      .legend-categorical {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 6px;
+        font-size: 11px;
+      }
+
+      .legend-color {
+        width: 16px;
+        height: 16px;
+        margin-right: 8px;
+        border: 1px solid #999;
+        flex-shrink: 0;
+      }
+
+      .legend-name {
+        color: #333;
+      }
+
       .control-group select {
         width: 100%;
         padding: 5px;
@@ -165,7 +199,7 @@
           <select id="data-layer">
             <option value="elevation">Elevation</option>
             <option value="none">None</option>
-            <option value="cdl">Cropland Data Layer</option>
+            <option value="cdl">Cropland Data Layer (CDL)</option>
             <option value="nlcd">Land Cover (NLCD)</option>
             <option value="runoff">Runoff Coefficient</option>
           </select>
@@ -199,9 +233,14 @@
           <div class="value-display"><span id="sampling-value">1</span>x</div>
         </div>
 
-        <div class="control-group">
-          <label>Wireframe</label>
+        <div class="control-group checkbox-group">
           <input type="checkbox" id="wireframe" />
+          <label for="wireframe">Wireframe</label>
+        </div>
+
+        <div class="control-group checkbox-group">
+          <input type="checkbox" id="camera-movement" />
+          <label for="camera-movement">Pan Camera</label>
         </div>
       </div>
 

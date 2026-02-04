@@ -6,6 +6,8 @@ let demData;
 let cdlData;
 let nlcdData;
 let runoffData;
+let nlcdClasses;
+let cdlClasses;
 let elevationScale = 1.0;
 let showWireframe = false;
 let dataLayer = 'elevation';
@@ -25,6 +27,9 @@ async function init() {
         
         // Load Runoff data
         await loadRunoffData();
+        
+        // Load classification names
+        await loadClassifications();
         
         // Setup Three.js scene
         setupScene();
@@ -96,6 +101,21 @@ async function loadRunoffData() {
     console.log('Runoff range:', runoffData.range.min, '-', runoffData.range.max);
 }
 
+// Load classification names
+async function loadClassifications() {
+    const nlcdResponse = await fetch('../NLCD/nlcd_classes.json');
+    if (nlcdResponse.ok) {
+        nlcdClasses = await nlcdResponse.json();
+        console.log('NLCD classes loaded:', Object.keys(nlcdClasses).length);
+    }
+    
+    const cdlResponse = await fetch('../CDL/cdl_classes.json');
+    if (cdlResponse.ok) {
+        cdlClasses = await cdlResponse.json();
+        console.log('CDL classes loaded:', Object.keys(cdlClasses).length);
+    }
+}
+
 // Setup Three.js scene
 function setupScene() {
     const container = document.getElementById('container');
@@ -131,6 +151,7 @@ function setupScene() {
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    controls.enablePan = false; // Disable panning by default - camera stays centered
     
     // Handle resize
     window.addEventListener('resize', onWindowResize);
@@ -317,19 +338,81 @@ function getColorForDataLayer(normalized, layer, row, col) {
 function updateLegend() {
     const legend = document.getElementById('legend');
     const legendTitle = document.querySelector('#legend h4');
-    const legendMin = document.getElementById('legend-min');
-    const legendMax = document.getElementById('legend-max');
+    const legendContent = legend.querySelector('.legend-gradient') ? 
+        legend.querySelector('.legend-gradient').parentElement : null;
     
     if (dataLayer === 'elevation') {
         legend.classList.add('visible');
-        legendTitle.textContent = 'Elevation';
-        legendMin.textContent = Math.round(demData.elevation.min) + 'm';
-        legendMax.textContent = Math.round(demData.elevation.max) + 'm';
+        legend.innerHTML = `
+            <h4>Elevation</h4>
+            <div class="legend-gradient"></div>
+            <div class="legend-labels">
+                <span>${Math.round(demData.elevation.min)}m</span>
+                <span>${Math.round(demData.elevation.max)}m</span>
+            </div>
+        `;
     } else if (dataLayer === 'runoff') {
         legend.classList.add('visible');
-        legendTitle.textContent = 'Runoff Coefficient';
-        legendMin.textContent = runoffData.range.min.toFixed(3);
-        legendMax.textContent = runoffData.range.max.toFixed(3);
+        legend.innerHTML = `
+            <h4>Runoff Coefficient</h4>
+            <div class="legend-gradient"></div>
+            <div class="legend-labels">
+                <span>${runoffData.range.min.toFixed(3)}</span>
+                <span>${runoffData.range.max.toFixed(3)}</span>
+            </div>
+        `;
+    } else if (dataLayer === 'nlcd' && nlcdClasses && nlcdData) {
+        // Get unique values present in data
+        const uniqueValues = new Set();
+        for (let row of nlcdData.data) {
+            for (let val of row) {
+                if (val !== null) uniqueValues.add(val);
+            }
+        }
+        
+        legend.classList.add('visible');
+        let html = '<h4>Land Cover (NLCD)</h4><div class="legend-categorical">';
+        for (let value of Array.from(uniqueValues).sort((a, b) => a - b)) {
+            const valueStr = value.toString();
+            if (nlcdClasses[valueStr] && nlcdData.colormap[valueStr]) {
+                const rgb = nlcdData.colormap[valueStr];
+                const color = `rgb(${Math.round(rgb[0]*255)}, ${Math.round(rgb[1]*255)}, ${Math.round(rgb[2]*255)})`;
+                html += `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: ${color}"></div>
+                        <span class="legend-name">${nlcdClasses[valueStr]}</span>
+                    </div>
+                `;
+            }
+        }
+        html += '</div>';
+        legend.innerHTML = html;
+    } else if (dataLayer === 'cdl' && cdlClasses && cdlData) {
+        // Get unique values present in data
+        const uniqueValues = new Set();
+        for (let row of cdlData.data) {
+            for (let val of row) {
+                if (val !== null) uniqueValues.add(val);
+            }
+        }
+        
+        legend.classList.add('visible');
+        let html = '<h4>Cropland Data Layer</h4><div class="legend-categorical">';
+        for (let value of Array.from(uniqueValues).sort((a, b) => a - b)) {
+            const valueStr = value.toString();
+            if (cdlClasses[valueStr] && cdlData.colormap[valueStr]) {
+                const rgb = cdlData.colormap[valueStr];
+                const color = `rgb(${Math.round(rgb[0]*255)}, ${Math.round(rgb[1]*255)}, ${Math.round(rgb[2]*255)})`;
+                html += `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: ${color}"></div>
+                        <span class="legend-name">${cdlClasses[valueStr]}</span>
+                    </div>
+                `;
+            }
+        }
+        html += '</div>';
+        legend.innerHTML = html;
     } else {
         legend.classList.remove('visible');
     }
@@ -377,6 +460,12 @@ function setupControls() {
         if (terrainMesh) {
             terrainMesh.material.wireframe = showWireframe;
         }
+    });
+    
+    // Camera movement checkbox - toggles panning (moving camera target)
+    const cameraCheckbox = document.getElementById('camera-movement');
+    cameraCheckbox.addEventListener('change', (e) => {
+        controls.enablePan = e.target.checked;
     });
 }
 

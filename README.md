@@ -26,8 +26,13 @@ conda run -n geo python prepare_runoff.py
 - **Vertical Exaggeration**: 1x to 5x real-time adjustment
 - **Resolution Sampling**: 1x (full 2556×1688) to 8x downsampling for performance
 - **Wireframe Mode**: Toggle mesh display
-- **Interactive Legend**: Shows value ranges for elevation and runoff coefficient layers
-- **Camera Controls**: Orbit, pan, and zoom with mouse
+- **Interactive Legends**:
+  - Gradient legends for elevation and runoff coefficient with min/max values
+  - Categorical legends for NLCD and CDL showing colored squares with class names
+  - Only displays classes actually present in the data
+- **Camera Controls**:
+  - Orbit and zoom enabled by default
+  - Optional panning to "fly to" specific terrain locations
 
 ### Data Files
 
