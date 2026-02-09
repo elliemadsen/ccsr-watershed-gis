@@ -14,11 +14,11 @@ View the precip data as a recurring GIF over the reservoir basin (at whatever ti
 
 Notes:
 
-- I will use three.js (if feasible) to view the 3d DEM in browser.
-- There are six reservoir basins. The precipitation data in each file has one column per basin centroid (lat/lon).
-- I will need to map each centroid lat/lon (csv column) to its geometry in a separate geojson (or other file format if easier).
+- I will use three.js to view the 3d DEM in browser. I already have this pipeline set up and working using .tif data - see 3js/...
+- The precipitation data in each file has one column per grid cell centroid (lat/lon). Divide the watershed region into a grid based on nearest centroid (voronoi).
 - The data is daily. I will aggregate by month. Start with mean for the aggregation, and in the future we could add min/max, etc. This should probably be done preprosseced to create versions of the file like Catskills*[MODEL]*[variable]\_[scenario]\_monthly_avg.csv
-- There will be a slider in the window for time. The user will drag it to change the current month, from 2015 to 2065.
-- There will also be a dropdown for the dataset: ([MODEL]\*[variable]\_[scenario]).
-- The DEM will be colored by each basin's precipitation value at the current time.
+- in the Data Layer dropdown, alongside CDL etc. there will be a new option called Precipitation. When selected:
+- There will appear a slider in the window for time. The user will drag it to change the current month, from 2015 to 2065.
+- There will also appear a new dropdown for the dataset: ([MODEL]\*[variable]\_[scenario]).
+- The DEM will be colored by each basin's precipitation value at the current time. Use voronoi smoothing interpolation so that there is no hard edges between the cells. but also show lines for each cell boundary.
 - After this works, I'll add functionality to export GIFs.
