@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -32,17 +32,28 @@
         flex-direction: column;
         gap: 15px;
         z-index: 1000;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
       }
 
       #controls {
         background: rgba(255, 255, 255, 0.95);
-        padding: 20px;
+        padding: 15px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         min-width: 250px;
       }
 
-      #controls h3 {
+      #climate-panel {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        min-width: 250px;
+      }
+
+      #controls h3,
+      #climate-panel h3 {
         margin: 0 0 15px 0;
         font-size: 16px;
         font-weight: lighter;
@@ -50,14 +61,14 @@
       }
 
       .control-group {
-        margin-bottom: 15px;
+        margin-bottom: 10px;
       }
 
       .control-group label {
         display: block;
         font-size: 12px;
         color: #666;
-        margin-bottom: 5px;
+        margin-bottom: 4px;
       }
 
       .control-group.checkbox-group label {
@@ -118,7 +129,7 @@
 
       #legend {
         background: rgba(255, 255, 255, 0.95);
-        padding: 15px;
+        padding: 12px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         display: none;
@@ -180,6 +191,34 @@
         border: 1px solid #ddd;
         border-radius: 4px;
       }
+
+      .radio-control {
+        margin-bottom: 8px;
+      }
+
+      .radio-control label {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 4px;
+        display: block;
+      }
+
+      .radio-options {
+        display: flex;
+        gap: 15px;
+        font-size: 11px;
+      }
+
+      .radio-option {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+      }
+
+      .radio-option input[type="radio"] {
+        margin: 0;
+      }
     </style>
   </head>
   <body>
@@ -202,6 +241,9 @@
             <option value="cdl">Cropland Data Layer (CDL)</option>
             <option value="nlcd">Land Cover (NLCD)</option>
             <option value="runoff">Runoff Coefficient</option>
+            <option value="climate_precip">Climate Model: Precipitation</option>
+            <option value="climate_temp">Climate Model: Temperature</option>
+            <option value="climate_humidity">Climate Model: Humidity</option>
           </select>
         </div>
 
@@ -238,9 +280,95 @@
           <label for="wireframe">Wireframe</label>
         </div>
 
-        <div class="control-group checkbox-group">
+        <div class="control-group checkbox-group" style="margin-bottom: 5px">
           <input type="checkbox" id="camera-movement" />
           <label for="camera-movement">Pan Camera</label>
+        </div>
+      </div>
+
+      <!-- Climate Model Panel -->
+      <div id="climate-panel" style="display: none">
+        <h3 id="climate-panel-title">Climate Model</h3>
+
+        <div class="control-group">
+          <label>Model</label>
+          <select id="climate-model-select">
+            <!-- Options will be populated by JavaScript based on selected climate type -->
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label>Time: <span id="time-value">2015-03</span></label>
+          <input
+            type="range"
+            id="time-slider"
+            min="0"
+            max="203"
+            step="1"
+            value="0"
+          />
+          <div class="value-display" style="margin-top: 5px">
+            <small><span id="time-date">Spring (Mar) 2015</span></small>
+          </div>
+        </div>
+
+        <div class="control-group checkbox-group">
+          <input type="checkbox" id="show-cell-boundaries" />
+          <label for="show-cell-boundaries">Show Grid Boundaries</label>
+        </div>
+
+        <div class="control-group">
+          <div class="radio-control">
+            <label>Color Range</label>
+            <div class="radio-options">
+              <div class="radio-option">
+                <input
+                  type="radio"
+                  name="color-range"
+                  value="per-timestamp"
+                  id="color-range-per"
+                  checked
+                />
+                <label for="color-range-per">Per Timestamp</label>
+              </div>
+              <div class="radio-option">
+                <input
+                  type="radio"
+                  name="color-range"
+                  value="global"
+                  id="color-range-global"
+                />
+                <label for="color-range-global">Global</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="radio-control">
+            <label>Visualization Mode</label>
+            <div class="radio-options">
+              <div class="radio-option">
+                <input
+                  type="radio"
+                  name="viz-mode"
+                  value="interpolated"
+                  id="viz-mode-interp"
+                  checked
+                />
+                <label for="viz-mode-interp">Interpolated</label>
+              </div>
+              <div class="radio-option">
+                <input
+                  type="radio"
+                  name="viz-mode"
+                  value="grid-cells"
+                  id="viz-mode-grid"
+                />
+                <label for="viz-mode-grid">Grid Cells</label>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
