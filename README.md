@@ -8,10 +8,9 @@ Interactive 3D terrain viewer that runs entirely in the browser with real-time c
 
 ### Setup
 
-1. Generate data files from the `3js/` directory:
+1. Generate data files from the `web_data/` directory:
 
 ```bash
-cd 3js
 conda run -n geo python prepare_dem.py
 conda run -n geo python prepare_cdl.py
 conda run -n geo python prepare_nlcd.py
@@ -19,10 +18,9 @@ conda run -n geo python prepare_runoff.py
 conda run -n geo python prepare_climate_models.py
 ```
 
-2. Start a local web server and open in browser:
+2. Start a local web server from the root directory:
 
 ```bash
-cd 3js
 python3 -m http.server 8080
 # Open http://localhost:8080 in web browser
 ```
@@ -30,6 +28,10 @@ python3 -m http.server 8080
 ### Features
 
 - **Data Layers**: Switch between Elevation, Cropland Data Layer (CDL), Land Cover (NLCD), Runoff Coefficient, or Climate Data (Precipitation, Temperature, Humidity)
+- **Category Filtering**: Toggle individual land cover and cropland categories on/off with interactive legends
+  - Select All / Deselect All buttons for quick selection
+  - Click individual categories to show/hide specific land uses
+  - Visual feedback with grayed-out unselected categories
 - **Climate Model Visualization**:
   - ACCESS-ESM1-5 and IPSL-CM6A-LR models with SSP3-7.0 scenario
   - Seasonal time series data (612 timesteps from 2024-2176)
@@ -42,26 +44,25 @@ python3 -m http.server 8080
 - **Wireframe Mode**: Toggle mesh display
 - **Interactive Legends**:
   - Gradient legends for elevation, runoff coefficient, and climate data with min/max values and units
-  - Categorical legends for NLCD and CDL showing colored squares with class names
+  - Categorical legends for NLCD and CDL with individual category toggles
   - Dynamic updates based on selected data layer and climate model
   - Only displays classes actually present in the data
 - **Camera Controls**:
-  - Orbit and zoom enabled by default
-  - Optional panning to "fly to" specific terrain locations
+  - Orbit, zoom, and pan enabled by default
 
 ### Data Files
 
-Generated JSON files (loaded by browser):
+Generated JSON files:
 
-- `data/dem_data.json` (27 MB) - Elevation data
-- `data/cdl_data.json` (21 MB) - Cropland classification with colormap
-- `data/nlcd_data.json` (17 MB) - Land cover with colormap
-- `data/runoff_data.json` (46 MB) - Runoff coefficients
-- `data/ACCESS-ESM1-5_pr_ssp370.json` - Precipitation projections (ACCESS model)
-- `data/ACCESS-ESM1-5_tasmax_ssp370.json` - Maximum temperature projections
-- `data/ACCESS-ESM1-5_tasmin_ssp370.json` - Minimum temperature projections
-- `data/ACCESS-ESM1-5_hurs_ssp370.json` - Relative humidity projections
-- `data/IPSL-CM6A-LR_*_ssp370.json` - Corresponding IPSL model files
+- `web_data/dem_data.json` (27 MB) - Elevation data
+- `web_data/cdl_data.json` (21 MB) - Cropland classification with colormap
+- `web_data/nlcd_data.json` (17 MB) - Land cover with colormap
+- `web_data/runoff_data.json` (46 MB) - Runoff coefficients
+- `web_data/ACCESS-ESM1-5_pr_ssp370.json` - Precipitation projections (ACCESS model)
+- `web_data/ACCESS-ESM1-5_tasmax_ssp370.json` - Maximum temperature projections
+- `web_data/ACCESS-ESM1-5_tasmin_ssp370.json` - Minimum temperature projections
+- `web_data/ACCESS-ESM1-5_hurs_ssp370.json` - Relative humidity projections
+- `web_data/IPSL-CM6A-LR_*_ssp370.json` - Corresponding IPSL model files
 
 Climate data contains 612 seasonal timesteps (2024-2176) with 6 spatial centroids in a 2×3 grid covering the watershed.
 
@@ -81,8 +82,11 @@ All data automatically reprojected to match DEM coordinate system (EPSG:26918).
 
 ### Known Bugs
 
-- **Grid Boundaries**: Climate data grid boundaries are wrong, need to debug
-- **Legend**: After switching the data layer you also need to change model to trigger legend update, need to debug
+- **Grid Boundaries**: Climate data grid boundaries may not align perfectly with actual climate model centroids due to coordinate transformation approximations
+- **Performance**: Large climate datasets (612 timesteps) may cause brief delays when switching between models
+- **Legend Units**: Some climate variables display raw model units (e.g., Kelvin for temperature) rather than user-friendly units
+- **Wireframe Rendering**: Wireframe mode may render slowly on high-resolution terrain data
+- **Mobile Compatibility**: Touch controls for 3D navigation may be limited on mobile devices
 
 ---
 
