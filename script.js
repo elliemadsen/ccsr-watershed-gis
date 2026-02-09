@@ -25,6 +25,7 @@ let compactClimateGlobalRange = { min: 0, max: 1 }; // Global min/max across all
 let colorRangeMode = 'per-timestamp'; // 'per-timestamp' or 'global'
 let visualizationMode = 'interpolated'; // 'interpolated' or 'grid-cells'
 let gridBoundaryLines = null; // Three.js line object for climate grid boundaries
+let selectedCategories = new Set(); // Track selected categories for CDL/NLCD
 
 // Climate variable units mapping
 const climateUnits = {
@@ -83,9 +84,9 @@ async function init() {
 
 // Load DEM data from JSON
 async function loadDEMData() {
-    const response = await fetch('data/dem_data.json');
+    const response = await fetch('web_data/dem_data.json');
     if (!response.ok) {
-        throw new Error('Failed to load data/dem_data.json. Run prepare_dem.py first!');
+        throw new Error('Failed to load web_data/dem_data.json. Run prepare_dem.py first!');
     }
     demData = await response.json();
     console.log('DEM loaded:', demData.width, 'x', demData.height);
@@ -94,9 +95,9 @@ async function loadDEMData() {
 
 // Load CDL data from JSON
 async function loadCDLData() {
-    const response = await fetch('data/cdl_data.json');
+    const response = await fetch('web_data/cdl_data.json');
     if (!response.ok) {
-        throw new Error('Failed to load data/cdl_data.json. Run prepare_cdl.py first!');
+        throw new Error('Failed to load web_data/cdl_data.json. Run prepare_cdl.py first!');
     }
     cdlData = await response.json();
     console.log('CDL loaded:', cdlData.width, 'x', cdlData.height);
@@ -105,9 +106,9 @@ async function loadCDLData() {
 
 // Load NLCD data from JSON
 async function loadNLCDData() {
-    const response = await fetch('data/nlcd_data.json');
+    const response = await fetch('web_data/nlcd_data.json');
     if (!response.ok) {
-        throw new Error('Failed to load data/nlcd_data.json. Run prepare_nlcd.py first!');
+        throw new Error('Failed to load web_data/nlcd_data.json. Run prepare_nlcd.py first!');
     }
     nlcdData = await response.json();
     console.log('NLCD loaded:', nlcdData.width, 'x', nlcdData.height);
@@ -116,9 +117,9 @@ async function loadNLCDData() {
 
 // Load Runoff data from JSON
 async function loadRunoffData() {
-    const response = await fetch('data/runoff_data.json');
+    const response = await fetch('web_data/runoff_data.json');
     if (!response.ok) {
-        throw new Error('Failed to load data/runoff_data.json. Run prepare_runoff.py first!');
+        throw new Error('Failed to load web_data/runoff_data.json. Run prepare_runoff.py first!');
     }
     runoffData = await response.json();
     console.log('Runoff loaded:', runoffData.width, 'x', runoffData.height);
@@ -127,13 +128,13 @@ async function loadRunoffData() {
 
 // Load classification names
 async function loadClassifications() {
-    const nlcdResponse = await fetch('../NLCD/nlcd_classes.json');
+    const nlcdResponse = await fetch('NLCD/nlcd_classes.json');
     if (nlcdResponse.ok) {
         nlcdClasses = await nlcdResponse.json();
         console.log('NLCD classes loaded:', Object.keys(nlcdClasses).length);
     }
     
-    const cdlResponse = await fetch('../CDL/cdl_classes.json');
+    const cdlResponse = await fetch('CDL/cdl_classes.json');
     if (cdlResponse.ok) {
         cdlClasses = await cdlResponse.json();
         console.log('CDL classes loaded:', Object.keys(cdlClasses).length);
@@ -262,7 +263,7 @@ function setupScene() {
     
     // Scene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xffffff);
+    scene.background = new THREE.Color(0xf5f5f5);
     
     // Camera
     camera = new THREE.PerspectiveCamera(
@@ -291,7 +292,7 @@ function setupScene() {
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.enablePan = false; // Disable panning by default - camera stays centered
+    controls.enablePan = true; // Enable panning by default now
     
     // Handle resize
     window.addEventListener('resize', onWindowResize);
@@ -443,30 +444,36 @@ function getColorForDataLayer(normalized, layer, row, col) {
                 if (row < cdlData.height && col < cdlData.width) {
                     const cdlValue = cdlData.data[row][col];
                     if (cdlValue !== null && cdlValue !== undefined) {
-                        const colorKey = cdlValue.toString();
-                        if (cdlData.colormap && cdlData.colormap[colorKey]) {
-                            const rgb = cdlData.colormap[colorKey];
-                            return { r: rgb[0], g: rgb[1], b: rgb[2] };
+                        // Check if this category is selected
+                        if (selectedCategories.size === 0 || selectedCategories.has(cdlValue.toString())) {
+                            const colorKey = cdlValue.toString();
+                            if (cdlData.colormap && cdlData.colormap[colorKey]) {
+                                const rgb = cdlData.colormap[colorKey];
+                                return { r: rgb[0], g: rgb[1], b: rgb[2] };
+                            }
                         }
                     }
                 }
             }
-            return { r: 0.8, g: 0.8, b: 0.8 }; // Gray for NoData
+            return { r: 0.8, g: 0.8, b: 0.8 }; // Gray for NoData or unselected
         case 'nlcd':
             // Get NLCD value at this position
             if (nlcdData && nlcdData.data && row !== undefined && col !== undefined) {
                 if (row < nlcdData.height && col < nlcdData.width) {
                     const nlcdValue = nlcdData.data[row][col];
                     if (nlcdValue !== null && nlcdValue !== undefined) {
-                        const colorKey = nlcdValue.toString();
-                        if (nlcdData.colormap && nlcdData.colormap[colorKey]) {
-                            const rgb = nlcdData.colormap[colorKey];
-                            return { r: rgb[0], g: rgb[1], b: rgb[2] };
+                        // Check if this category is selected
+                        if (selectedCategories.size === 0 || selectedCategories.has(nlcdValue.toString())) {
+                            const colorKey = nlcdValue.toString();
+                            if (nlcdData.colormap && nlcdData.colormap[colorKey]) {
+                                const rgb = nlcdData.colormap[colorKey];
+                                return { r: rgb[0], g: rgb[1], b: rgb[2] };
+                            }
                         }
                     }
                 }
             }
-            return { r: 0.8, g: 0.8, b: 0.8 }; // Gray for NoData
+            return { r: 0.8, g: 0.8, b: 0.8 }; // Gray for NoData or unselected
         case 'runoff':
             // Get runoff value at this position
             if (runoffData && runoffData.data && row !== undefined && col !== undefined) {
@@ -643,14 +650,28 @@ function updateLegend() {
         }
         
         legend.classList.add('visible');
-        let html = '<h4>Land Cover (NLCD)</h4><div class="legend-categorical">';
+        let html = '<h4>Land Cover (NLCD)</h4>';
+        
+        // Add category controls
+        html += `
+            <div class="category-controls">
+                <div class="category-buttons">
+                    <div class="category-btn" onclick="selectAllCategories('nlcd')">Select All</div>
+                    <div class="category-btn" onclick="deselectAllCategories('nlcd')">Deselect All</div>
+                </div>
+            </div>
+        `;
+        
+        html += '<div class="legend-categorical">';
         for (let value of Array.from(uniqueValues).sort((a, b) => a - b)) {
             const valueStr = value.toString();
             if (nlcdClasses[valueStr] && nlcdData.colormap[valueStr]) {
                 const rgb = nlcdData.colormap[valueStr];
                 const color = `rgb(${Math.round(rgb[0]*255)}, ${Math.round(rgb[1]*255)}, ${Math.round(rgb[2]*255)})`;
+                const isSelected = selectedCategories.size === 0 || selectedCategories.has(valueStr);
+                const disabledClass = isSelected ? '' : 'disabled';
                 html += `
-                    <div class="legend-item">
+                    <div class="legend-item ${disabledClass}" onclick="toggleCategory('${valueStr}')">
                         <div class="legend-color" style="background: ${color}"></div>
                         <span class="legend-name">${nlcdClasses[valueStr]}</span>
                     </div>
@@ -669,14 +690,28 @@ function updateLegend() {
         }
         
         legend.classList.add('visible');
-        let html = '<h4>Cropland Data Layer</h4><div class="legend-categorical">';
+        let html = '<h4>Cropland Data Layer</h4>';
+        
+        // Add category controls
+        html += `
+            <div class="category-controls">
+                <div class="category-buttons">
+                    <div class="category-btn" onclick="selectAllCategories('cdl')">Select All</div>
+                    <div class="category-btn" onclick="deselectAllCategories('cdl')">Deselect All</div>
+                </div>
+            </div>
+        `;
+        
+        html += '<div class="legend-categorical">';
         for (let value of Array.from(uniqueValues).sort((a, b) => a - b)) {
             const valueStr = value.toString();
             if (cdlClasses[valueStr] && cdlData.colormap[valueStr]) {
                 const rgb = cdlData.colormap[valueStr];
                 const color = `rgb(${Math.round(rgb[0]*255)}, ${Math.round(rgb[1]*255)}, ${Math.round(rgb[2]*255)})`;
+                const isSelected = selectedCategories.size === 0 || selectedCategories.has(valueStr);
+                const disabledClass = isSelected ? '' : 'disabled';
                 html += `
-                    <div class="legend-item">
+                    <div class="legend-item ${disabledClass}" onclick="toggleCategory('${valueStr}')">
                         <div class="legend-color" style="background: ${color}"></div>
                         <span class="legend-name">${cdlClasses[valueStr]}</span>
                     </div>
@@ -743,127 +778,15 @@ function climateColorScale(normalized) {
     }
 }
 
-// Update legend visibility and values
-function updateLegend() {
-    const legend = document.getElementById('legend');
-    const legendTitle = document.querySelector('#legend h4');
-    const legendContent = legend.querySelector('.legend-gradient') ? 
-        legend.querySelector('.legend-gradient').parentElement : null;
-    
-    if (dataLayer === 'elevation') {
-        legend.classList.add('visible');
-        legend.innerHTML = `
-            <h4>Elevation</h4>
-            <div class="legend-gradient"></div>
-            <div class="legend-labels">
-                <span>${Math.round(demData.elevation.min)}m</span>
-                <span>${Math.round(demData.elevation.max)}m</span>
-            </div>
-        `;
-    } else if (dataLayer === 'runoff') {
-        legend.classList.add('visible');
-        legend.innerHTML = `
-            <h4>Runoff Coefficient</h4>
-            <div class="legend-gradient"></div>
-            <div class="legend-labels">
-                <span>${runoffData.range.min.toFixed(3)}</span>
-                <span>${runoffData.range.max.toFixed(3)}</span>
-            </div>
-        `;
-    } else if (dataLayer === 'nlcd' && nlcdClasses && nlcdData) {
-        // Get unique values present in data
-        const uniqueValues = new Set();
-        for (let row of nlcdData.data) {
-            for (let val of row) {
-                if (val !== null) uniqueValues.add(val);
-            }
-        }
-        
-        legend.classList.add('visible');
-        let html = '<h4>Land Cover (NLCD)</h4><div class="legend-categorical">';
-        for (let value of Array.from(uniqueValues).sort((a, b) => a - b)) {
-            const valueStr = value.toString();
-            if (nlcdClasses[valueStr] && nlcdData.colormap[valueStr]) {
-                const rgb = nlcdData.colormap[valueStr];
-                const color = `rgb(${Math.round(rgb[0]*255)}, ${Math.round(rgb[1]*255)}, ${Math.round(rgb[2]*255)})`;
-                html += `
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: ${color}"></div>
-                        <span class="legend-name">${nlcdClasses[valueStr]}</span>
-                    </div>
-                `;
-            }
-        }
-        html += '</div>';
-        legend.innerHTML = html;
-    } else if (dataLayer === 'cdl' && cdlClasses && cdlData) {
-        // Get unique values present in data
-        const uniqueValues = new Set();
-        for (let row of cdlData.data) {
-            for (let val of row) {
-                if (val !== null) uniqueValues.add(val);
-            }
-        }
-        
-        legend.classList.add('visible');
-        let html = '<h4>Cropland Data Layer</h4><div class="legend-categorical">';
-        for (let value of Array.from(uniqueValues).sort((a, b) => a - b)) {
-            const valueStr = value.toString();
-            if (cdlClasses[valueStr] && cdlData.colormap[valueStr]) {
-                const rgb = cdlData.colormap[valueStr];
-                const color = `rgb(${Math.round(rgb[0]*255)}, ${Math.round(rgb[1]*255)}, ${Math.round(rgb[2]*255)})`;
-                html += `
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: ${color}"></div>
-                        <span class="legend-name">${cdlClasses[valueStr]}</span>
-                    </div>
-                `;
-            }
-        }
-        html += '</div>';
-        legend.innerHTML = html;
-    } else if ((dataLayer === 'climate_precip' || dataLayer === 'climate_temp' || dataLayer === 'climate_humidity') && compactClimateData) {
-        // Get range based on color range mode
-        const timestep = compactClimateData.timesteps[currentTimeIndex];
-        if (timestep && timestep.values) {
-            let min, max;
-            if (colorRangeMode === 'global') {
-                min = compactClimateGlobalRange.min;
-                max = compactClimateGlobalRange.max;
-            } else {
-                min = Math.min(...timestep.values);
-                max = Math.max(...timestep.values);
-            }
-            
-            // Get variable info based on current data layer and loaded data
-            let variable, units;
-            if (dataLayer === 'climate_precip') {
-                variable = 'Precipitation';
-                units = 'mm/day';
-            } else if (dataLayer === 'climate_temp') {
-                variable = compactClimateData.metadata.label || 'Temperature';
-                units = 'K'; // Kelvin from the data
-            } else if (dataLayer === 'climate_humidity') {
-                variable = 'Relative Humidity';
-                units = '%';
-            }
-            
-            legend.classList.add('visible');
-            legend.innerHTML = `
-                <h4>${variable}</h4>
-                <div class="legend-gradient"></div>
-                <div class="legend-labels">
-                    <span>${min.toFixed(6)}</span>
-                    <span>${max.toFixed(6)}</span>
-                </div>
-                <div style="text-align: center; font-size: 10px; color: #666; margin-top: 5px;">
-                    ${units}
-                </div>
-            `;
-        }
+//  Category management functions
+function toggleCategory(categoryId) {
+    if (selectedCategories.has(categoryId)) {
+        selectedCategories.delete(categoryId);
     } else {
-        legend.classList.remove('visible');
+        selectedCategories.add(categoryId);
     }
+    updateLegend();
+    updateTerrain();
 }
 
 // Update time display without month abbreviations
@@ -889,6 +812,46 @@ function updateTimeDisplay() {
         if (timeValue) timeValue.textContent = `${year}-${String(month).padStart(2, '0')}`;
         if (timeDate) timeDate.textContent = `${seasonNames[month] || 'Month ' + month} ${year}`;
     }
+}
+
+// Category management functions
+function toggleCategory(categoryId) {
+    if (selectedCategories.has(categoryId)) {
+        selectedCategories.delete(categoryId);
+    } else {
+        selectedCategories.add(categoryId);
+    }
+    updateLegend();
+    updateTerrain();
+}
+
+function selectAllCategories(dataType) {
+    selectedCategories.clear();
+    updateLegend();
+    updateTerrain();
+}
+
+function deselectAllCategories(dataType) {
+    // Get all categories for the current data type
+    if (dataType === 'nlcd' && nlcdData) {
+        for (let row of nlcdData.data) {
+            for (let val of row) {
+                if (val !== null) selectedCategories.add(val.toString());
+            }
+        }
+    } else if (dataType === 'cdl' && cdlData) {
+        for (let row of cdlData.data) {
+            for (let val of row) {
+                if (val !== null) selectedCategories.add(val.toString());
+            }
+        }
+    }
+    // Now everything except what we want is selected, so invert by clearing all
+    selectedCategories.clear();
+    // Add just one invalid category so nothing shows
+    selectedCategories.add('__none__');
+    updateLegend();
+    updateTerrain();
 }
 
 // Update terrain with new settings
@@ -921,30 +884,33 @@ function setupControls() {
         climate_precip: {
             title: 'Climate Model: Precipitation',
             options: [
-                { file: 'data/ACCESS-ESM1-5_pr_ssp370.json', label: 'ACCESS-ESM1-5 (hot/wet)' },
-                { file: 'data/IPSL-CM6A-LR_pr_ssp370.json', label: 'IPSL-CM6A-LR (hot/dry)' }
+                { file: 'web_data/ACCESS-ESM1-5_pr_ssp370.json', label: 'ACCESS-ESM1-5' },
+                { file: 'web_data/IPSL-CM6A-LR_pr_ssp370.json', label: 'IPSL-CM6A-LR' }
             ]
         },
         climate_temp: {
             title: 'Climate Model: Temperature',
             options: [
-                { file: 'data/ACCESS-ESM1-5_tasmax_ssp370.json', label: 'ACCESS-ESM1-5 (hot/wet) - Max Temp' },
-                { file: 'data/ACCESS-ESM1-5_tasmin_ssp370.json', label: 'ACCESS-ESM1-5 (hot/wet) - Min Temp' },
-                { file: 'data/IPSL-CM6A-LR_tasmax_ssp370.json', label: 'IPSL-CM6A-LR (hot/dry) - Max Temp' },
-                { file: 'data/IPSL-CM6A-LR_tasmin_ssp370.json', label: 'IPSL-CM6A-LR (hot/dry) - Min Temp' }
+                { file: 'web_data/ACCESS-ESM1-5_tasmax_ssp370.json', label: 'ACCESS-ESM1-5 - Max Temp' },
+                { file: 'web_data/ACCESS-ESM1-5_tasmin_ssp370.json', label: 'ACCESS-ESM1-5 - Min Temp' },
+                { file: 'web_data/IPSL-CM6A-LR_tasmax_ssp370.json', label: 'IPSL-CM6A-LR - Max Temp' },
+                { file: 'web_data/IPSL-CM6A-LR_tasmin_ssp370.json', label: 'IPSL-CM6A-LR - Min Temp' }
             ]
         },
         climate_humidity: {
             title: 'Climate Model: Humidity',
             options: [
-                { file: 'data/ACCESS-ESM1-5_hurs_ssp370.json', label: 'ACCESS-ESM1-5 (hot/wet)' },
-                { file: 'data/IPSL-CM6A-LR_hurs_ssp370.json', label: 'IPSL-CM6A-LR (hot/dry)' }
+                { file: 'web_data/ACCESS-ESM1-5_hurs_ssp370.json', label: 'ACCESS-ESM1-5' },
+                { file: 'web_data/IPSL-CM6A-LR_hurs_ssp370.json', label: 'IPSL-CM6A-LR' }
             ]
         }
     };
     
     layerSelect.addEventListener('change', (e) => {
         dataLayer = e.target.value;
+        
+        // Reset categories when switching layers
+        selectedCategories.clear();
         
         // Show/hide climate panel
         if (dataLayer.startsWith('climate_')) {
@@ -958,18 +924,12 @@ function setupControls() {
             
             climatePanel.style.display = 'block';
             
-            // Load initial dataset if not loaded
-            if (!compactClimateData) {
-                loadCompactPrecipData(climateModelSelect.value).then(() => {
-                    updateLegend();
-                    updateTerrain();
-                    updateTimeDisplay(); // Update time display after loading data
-                });
-            } else {
-                updateLegend(); // Update legend for new data layer
+            // Always load the initial dataset for the new climate type
+            loadCompactPrecipData(climateModelSelect.value).then(() => {
+                updateLegend();
                 updateTerrain();
-                updateTimeDisplay(); // Update time display when switching models
-            }
+                updateTimeDisplay(); // Update time display after loading data
+            });
         } else {
             climatePanel.style.display = 'none';
             updateLegend(); // Update legend for non-climate layers
@@ -1092,6 +1052,12 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// Toggle info modal
+function toggleInfoModal() {
+    const modal = document.getElementById('info-modal');
+    modal.classList.toggle('show');
 }
 
 // Start

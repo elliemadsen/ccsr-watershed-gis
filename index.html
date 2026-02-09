@@ -15,7 +15,7 @@
         padding: 0;
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         overflow: hidden;
-        background: #2c3e50;
+        background: #f5f5f5;
       }
 
       #container {
@@ -61,7 +61,7 @@
       }
 
       .control-group {
-        margin-bottom: 10px;
+        margin-bottom: 6px;
       }
 
       .control-group label {
@@ -185,6 +185,54 @@
         color: #333;
       }
 
+      .category-controls {
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #eee;
+      }
+
+      .category-buttons {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .category-btn {
+        padding: 4px 8px;
+        font-size: 10px;
+        border: 1px solid #ddd;
+        background: #f8f8f8;
+        border-radius: 3px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .category-btn:hover {
+        background: #e8e8e8;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 6px;
+        font-size: 11px;
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 3px;
+      }
+
+      .legend-item:hover {
+        background: #f0f0f0;
+      }
+
+      .legend-item.disabled {
+        opacity: 0.4;
+      }
+
+      .legend-item.disabled .legend-color {
+        filter: grayscale(100%);
+      }
+
       .control-group select {
         width: 100%;
         padding: 5px;
@@ -219,6 +267,84 @@
       .radio-option input[type="radio"] {
         margin: 0;
       }
+
+      #info-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.95);
+        border: none;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        font-size: 18px;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #info-button:hover {
+        background: rgba(255, 255, 255, 1);
+      }
+
+      #info-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+      }
+
+      #info-modal.show {
+        display: flex;
+      }
+
+      .info-content {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        max-width: 500px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .info-content h3 {
+        margin-top: 0;
+        color: #333;
+      }
+
+      .info-content h4 {
+        color: #666;
+        margin-top: 20px;
+        margin-bottom: 10px;
+      }
+
+      .info-content ul {
+        margin-bottom: 15px;
+      }
+
+      .close-button {
+        float: right;
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #999;
+      }
+
+      .close-button:hover {
+        color: #333;
+      }
     </style>
   </head>
   <body>
@@ -227,6 +353,46 @@
     <div id="loading">
       <div class="spinner"></div>
       <div>Loading DEM data...</div>
+    </div>
+
+    <!-- Info Button -->
+    <button id="info-button" onclick="toggleInfoModal()">?</button>
+
+    <!-- Info Modal -->
+    <div id="info-modal">
+      <div class="info-content">
+        <button class="close-button" onclick="toggleInfoModal()">
+          &times;
+        </button>
+
+        <h5>Navigation Controls</h5>
+
+        <p>Rotate: Left click and drag (mouse) / One finger drag (trackpad)</p>
+        <p>Zoom: Mouse wheel (mouse) / Two finger pinch or scroll (trackpad)</p>
+        <p>
+          Pan: Middle click and drag (mouse) / Two finger drag (trackpad) when
+          enabled
+        </p>
+
+        <h5>Data Sources</h5>
+        <p>DEM: USGS National Elevation Dataset (2016)</p>
+        <p>NLCD: USGS/MRLC National Land Cover Database (2016)</p>
+        <p>CDL: USDA National Agricultural Statistics Service (2020)</p>
+
+        <h5>Climate Models</h5>
+        <p>
+          <a href="https://github.com/ACCESS-NRI/ACCESS-ESM1.5" target="_blank"
+            >ACCESS-ESM1.5</a
+          >
+        </p>
+        <p>
+          <a
+            href="https://cmc.ipsl.fr/ipsl-climate-models/ipsl-cm6/"
+            target="_blank"
+            >IPSL-CM6A-LR</a
+          >
+        </p>
+      </div>
     </div>
 
     <div id="controls-container">
@@ -281,7 +447,7 @@
         </div>
 
         <div class="control-group checkbox-group" style="margin-bottom: 5px">
-          <input type="checkbox" id="camera-movement" />
+          <input type="checkbox" id="camera-movement" checked />
           <label for="camera-movement">Pan Camera</label>
         </div>
       </div>
