@@ -80,15 +80,18 @@ def download_gridmet_data(year):
     """
     GRIDMET_RAW_DIR.mkdir(parents=True, exist_ok=True)
     
-    filename = f"pr_{year}.nc"
+    # Use new naming convention: precip_raw_4000m_YYYY.nc
+    filename = f"precip_raw_4000m_{year}.nc"
     filepath = GRIDMET_RAW_DIR / filename
     
     if filepath.exists():
         print(f"  File already exists: {filename}")
         return filepath
     
-    url = f"http://www.northwestknowledge.net/metdata/data/{filename}"
-    print(f"  Downloading {filename}...")
+    # GRIDMET server uses pr_YYYY.nc naming
+    source_filename = f"pr_{year}.nc"
+    url = f"http://www.northwestknowledge.net/metdata/data/{source_filename}"
+    print(f"  Downloading {source_filename} as {filename}...")
     
     try:
         subprocess.run(['wget', '-nc', '-c', '-O', str(filepath), url], 

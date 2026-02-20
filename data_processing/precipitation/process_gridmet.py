@@ -147,6 +147,11 @@ def aggregate_to_seasons(ds):
     
     # Group by season and sum
     seasonal = ds.groupby('season').sum(dim='day')
+    
+    # Check which seasons are present
+    available_seasons = seasonal.season.values
+    print(f"  Available seasons: {', '.join(available_seasons)}")
+    
     return seasonal
 
 
@@ -338,7 +343,17 @@ def quality_check_orographic_gradient(raster_path, watershed_path=None):
 def main():
     # Hard-coded configuration
     start_year = 2015
-    end_year = datetime.now().year
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+    
+    # Only include current year if we have at least some complete seasons
+    # GRIDMET data typically has a few days lag, so use current_year - 1 as safe default
+    # But if we're past March, we can include current year for at least some seasons
+    if current_month >= 3:  # After March, we have DJF complete
+        end_year = current_year
+    else:
+        end_year = current_year - 1
+    
     watershed_path = '../../data/sub-basins/Subbasins.shp'
     output_dir = Path('processed')
     skip_download = False
@@ -347,6 +362,7 @@ def main():
     print("GRIDMET Precipitation Processing")
     print("="*60)
     print(f"Period: {start_year} - {end_year}")
+    print(f"Current date: {datetime.now().strftime('%Y-%m-%d')}")
     print(f"Watershed boundary: {watershed_path}")
     print(f"Output directory: {output_dir}")
     print("="*60 + "\n")
@@ -376,6 +392,11 @@ def main():
         # Load dataset
         ds = xr.open_dataset(nc_file)
         
+        # Check temporal coverage
+        time_start = ds['day'].values[0]
+        time_end = ds['day'].values[-1]
+        print(f"  Data coverage: {time_start} to {time_end}")
+        
         # Clip to watershed boundary
         ds_clipped = clip_to_watershed(ds, watershed_path)
         
@@ -393,6 +414,16 @@ def main():
     print("\n--- Step 4: Computing multi-year seasonal means ---")
     multiyear_means = compute_multiyear_means(seasonal_datasets)
     
+    # Determine actual year range processed (min and max from successfully loaded files)
+    years_processed = []
+    for year in range(start_year, end_year + 1):
+        nc_file = f"raw/precip_raw_4000m_{year}.nc"
+        if os.path.exists(nc_file):
+            years_processed.append(year)
+    
+    year_range = f"{min(years_processed)}-{max(years_processed)}"
+    print(f"Year range: {year_range}")
+    
     # Step 5: Reproject and save each season
     print("\n--- Step 5: Reprojecting to UTM Zone 18N ---")
     
@@ -400,7 +431,7 @@ def main():
     
     for season_code, season_name in seasons.items():
         if season_code in multiyear_means.season.values:
-            output_file = output_dir / f"precip_final_30m_{season_code.lower()}.tif"
+            output_file = output_dir / f"precip_final_30m_{year_range}_{season_code.lower()}.tif"
             season_data = multiyear_means.sel(season=season_code)
             print(f"Saving {season_name} ({season_code})...")
             reproject_to_utm(season_data, output_file, target_resolution=30, watershed_path=watershed_path)
@@ -408,7 +439,7 @@ def main():
     # Step 6: Quality check
     print("\n--- Step 6: Quality Check ---")
     # Check one season as example
-    example_file = output_dir / "precip_final_30m_jja.tif"
+    example_file = output_dir / f"precip_final_30m_{year_range}_jja.tif"
     if example_file.exists():
         quality_check_orographic_gradient(example_file, watershed_path)
     

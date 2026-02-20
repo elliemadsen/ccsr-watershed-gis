@@ -1,6 +1,8 @@
-# CCSR Watershed GIS Project
+# Analytical Protocols for Hydrological Vulnerability Assessment and BMP Targeting in the Cannonsville Watershed
 
-Analytical Protocols for Hydrological Vulnerability Assessment and BMP Targeting in the Cannonsville Watershed
+Shared repository for data processing, analysis, modeling, and visualization
+
+The live site is deployed at https://elliemadsen.net/ccsr-watershed-gis/visualization/index.html
 
 ## Contributing
 
@@ -8,6 +10,7 @@ Analytical Protocols for Hydrological Vulnerability Assessment and BMP Targeting
 - Put scripts in `data_processing/`
 - Put web viz in `visualization/`
 - Document your work in README files within subdirectories
+  - Include libraries, dependencies, methods, metadata (resolution, year, attributes, etc)
 - Follow the established naming convention “variable_stage_resolution.ext"
 - Use EPSG:32618 (WGS 84 / UTM zone 18N) for projection
 - For large files, either add to LFS (.gitattributes) or .gitignore

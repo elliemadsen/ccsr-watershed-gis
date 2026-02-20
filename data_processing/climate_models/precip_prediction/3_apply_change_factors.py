@@ -114,14 +114,25 @@ def load_change_factors_geojson(model_name):
 def load_gridmet_baseline(season):
     """
     Load GRIDMET baseline precipitation raster for a given season.
+    Searches for files with year range pattern: precip_final_30m_YYYY-YYYY_{season}.tif
     
     Args:
-        season: Season name (djf, mam, jja, son)
+        season: Season code (djf, mam, jja, son)
         
     Returns:
-        Tuple of (data array, profile dict, transform)
+        tuple: (data array, raster profile)
     """
-    file_path = GRIDMET_DIR / f'precip_final_30m_{season}.tif'
+    # Look for files matching the pattern with year range
+    import glob
+    pattern = str(GRIDMET_DIR / f'precip_final_30m_*_{season}.tif')
+    matching_files = glob.glob(pattern)
+    
+    if not matching_files:
+        # Fallback to old naming without year range
+        file_path = GRIDMET_DIR / f'precip_final_30m_{season}.tif'
+    else:
+        # Use the most recent file (sorted alphabetically, which works for year ranges)
+        file_path = Path(sorted(matching_files)[-1])
     
     if not file_path.exists():
         raise FileNotFoundError(f"GRIDMET baseline raster not found: {file_path}")
