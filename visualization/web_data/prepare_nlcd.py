@@ -11,7 +11,7 @@ import json
 
 # First load DEM to get target bounds
 print("Loading DEM bounds...")
-dem_path = '../DEM/tif/DEM_UTM.tif'
+dem_path = '../../data/DEM/tif/DEM_UTM.tif'
 dem = rxr.open_rasterio(dem_path, masked=True).squeeze()
 dem_bounds = {
     'minX': float(dem.x.values.min()),
@@ -22,7 +22,7 @@ dem_bounds = {
 print(f'DEM bounds: {dem_bounds}')
 
 # Load NLCD
-nlcd_path = '../NLCD/nlcd2016_ny.tif'
+nlcd_path = '../../data/NLCD/nlcd2016_ny.tif'
 
 with rasterio.open(nlcd_path) as src:
     # Get colormap

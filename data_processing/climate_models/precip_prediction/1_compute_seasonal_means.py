@@ -29,11 +29,11 @@ import xarray as xr
 from datetime import datetime
 
 # Configuration
-# Data is in ccsr-watershed-gis/climate_models/data/
-# Scripts are in ccsr-watershed-gis/precipitation/climate_models/
-GCM_DATA_DIR = Path(__file__).parent.parent.parent / 'climate_models' / 'data' / 'daily'
+# Data is in ccsr-watershed-gis/data/climate_models/
+# Scripts are in ccsr-watershed-gis/data_processing/climate_models/
+GCM_DATA_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'daily'
 GRIDMET_RAW_DIR = Path(__file__).parent.parent / 'gridmet' / 'raw'
-OUTPUT_DIR = Path(__file__).parent.parent.parent / 'climate_models' / 'data' / 'seasonal_means'
+OUTPUT_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'seasonal_means'
 HISTORICAL_PERIOD = (1990, 2019)
 FUTURE_PERIOD = (2035, 2064)
 

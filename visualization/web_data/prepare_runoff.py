@@ -10,7 +10,7 @@ import json
 
 # First load DEM to get target bounds
 print("Loading DEM bounds...")
-dem_path = '../DEM/tif/DEM_UTM.tif'
+dem_path = '../../data/DEM/tif/DEM_UTM.tif'
 dem = rxr.open_rasterio(dem_path, masked=True).squeeze()
 dem_bounds = {
     'minX': float(dem.x.values.min()),
@@ -21,7 +21,7 @@ dem_bounds = {
 print(f'DEM bounds: {dem_bounds}')
 
 # Load Runoff Coefficient
-runoff_path = '../runoff_coefficient/runoff_coefficient.tif'
+runoff_path = '../../data/runoff_coefficient/runoff_coefficient.tif'
 runoff = rxr.open_rasterio(runoff_path, masked=True).squeeze()
 
 print(f'Original Runoff CRS: {runoff.rio.crs}')

@@ -1,2 +1,2 @@
 .DS_Store
-precipitation/gridmet/raw/*.nc
+data/precipitation/raw/*.nc

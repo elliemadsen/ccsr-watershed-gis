@@ -339,7 +339,7 @@ def main():
     # Hard-coded configuration
     start_year = 2015
     end_year = datetime.now().year
-    watershed_path = '../sub-basins/Subbasins.shp'
+    watershed_path = '../../data/sub-basins/Subbasins.shp'
     output_dir = Path('processed')
     skip_download = False
     

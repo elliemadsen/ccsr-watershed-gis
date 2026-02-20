@@ -12,7 +12,7 @@ from scipy.spatial import Voronoi
 
 # Load DEM for target dimensions
 print("Loading DEM...")
-dem_path = '../DEM/tif/DEM_UTM.tif'
+dem_path = '../../data/DEM/tif/DEM_UTM.tif'
 with rasterio.open(dem_path) as dem:
     dem_width = dem.width
     dem_height = dem.height
@@ -26,7 +26,7 @@ with rasterio.open(dem_path) as dem:
 print(f'DEM dimensions: {dem_width}x{dem_height}')
 
 # Load precipitation tif
-precip_tif = '../climate_models/tifs/ACCESS-ESM1-5_pr_ssp370_TEST.tif'
+precip_tif = '../../data/climate_models/tifs/ACCESS-ESM1-5_pr_ssp370_TEST.tif'
 print(f'\nLoading {precip_tif}...')
 
 with rasterio.open(precip_tif) as src:
@@ -106,7 +106,7 @@ def parse_grid_coords(column_name):
         return [float(match.group(1)), float(match.group(2))]
     return None
 
-csv_file = '../climate_models/Catskills_ACCESS-ESM1-5_pr_ssp370_monthly_avg.csv'
+csv_file = '../climate_models/data/monthly/Catskills_ACCESS-ESM1-5_pr_ssp370_monthly_avg.csv'
 df = pd.read_csv(csv_file, index_col=0, nrows=1)
 centroids_latlon = [parse_grid_coords(col) for col in df.columns if parse_grid_coords(col)]
 
