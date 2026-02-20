@@ -9,7 +9,7 @@ import numpy as np
 import json
 
 # Load DEM
-dem_path = '../DEM/tif/DEM_UTM.tif'
+dem_path = '../../data/DEM/tif/DEM_UTM.tif'
 dem = rxr.open_rasterio(dem_path, masked=True).squeeze()
 
 # Use full resolution

@@ -128,13 +128,13 @@ async function loadRunoffData() {
 
 // Load classification names
 async function loadClassifications() {
-    const nlcdResponse = await fetch('NLCD/nlcd_classes.json');
+    const nlcdResponse = await fetch('../data/NLCD/nlcd_classes.json');
     if (nlcdResponse.ok) {
         nlcdClasses = await nlcdResponse.json();
         console.log('NLCD classes loaded:', Object.keys(nlcdClasses).length);
     }
     
-    const cdlResponse = await fetch('CDL/cdl_classes.json');
+    const cdlResponse = await fetch('../data/CDL/cdl_classes.json');
     if (cdlResponse.ok) {
         cdlClasses = await cdlResponse.json();
         console.log('CDL classes loaded:', Object.keys(cdlClasses).length);

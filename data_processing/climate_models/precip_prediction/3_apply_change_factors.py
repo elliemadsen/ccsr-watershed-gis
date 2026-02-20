@@ -46,7 +46,7 @@ except ImportError:
     sys.exit(1)
 
 # Configuration
-CHANGE_FACTORS_DIR = Path(__file__).parent.parent.parent / 'climate_models' / 'data' / 'change_factors'
+CHANGE_FACTORS_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'change_factors'
 GRIDMET_DIR = Path(__file__).parent.parent / 'gridmet' / 'processed'
 OUTPUT_DIR = Path(__file__).parent / 'future_projections'
 

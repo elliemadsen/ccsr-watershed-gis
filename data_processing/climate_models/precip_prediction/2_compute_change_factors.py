@@ -24,10 +24,10 @@ from pathlib import Path
 import json
 
 # Configuration
-# Data is in ccsr-watershed-gis/climate_models/data/
-# Scripts are in ccsr-watershed-gis/precipitation/climate_models/
-DATA_DIR = Path(__file__).parent.parent.parent / 'climate_models' / 'data' / 'seasonal_means'
-OUTPUT_DIR = Path(__file__).parent.parent.parent / 'climate_models' / 'data' / 'change_factors'
+# Data is in ccsr-watershed-gis/data/climate_models/
+# Scripts are in ccsr-watershed-gis/data_processing/climate_models/
+DATA_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'seasonal_means'
+OUTPUT_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'change_factors'
 
 # Models to process
 MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR']

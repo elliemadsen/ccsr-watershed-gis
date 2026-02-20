@@ -52,7 +52,7 @@ def create_voronoi_cells(centroids):
 
 def load_monthly_data():
     """Load all monthly precipitation CSV files."""
-    pattern = '../climate_models/Catskills_*_monthly_avg.csv'
+    pattern = '../../data/climate_models/monthly/Catskills_*_monthly_avg.csv'
     csv_files = glob.glob(pattern)
     
     if not csv_files:
