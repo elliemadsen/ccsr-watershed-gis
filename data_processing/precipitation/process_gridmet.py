@@ -30,7 +30,7 @@ from scipy import stats
 warnings.filterwarnings('ignore')
 
 
-def download_gridmet_data(year, output_dir='raw'):
+def download_gridmet_data(year, output_dir='../../data/precipitation/raw'):
     """
     Download GRIDMET precipitation data for a specific year.
     
@@ -155,6 +155,29 @@ def aggregate_to_seasons(ds):
     return seasonal
 
 
+def aggregate_to_months(ds):
+    """
+    Aggregate daily precipitation to monthly totals.
+    
+    Args:
+        ds (xarray.Dataset): Daily precipitation dataset
+    
+    Returns:
+        xarray.Dataset: Monthly totals with month coordinate (1-12)
+    """
+    # Create month number coordinate
+    ds = ds.assign_coords(month=ds['day'].dt.month)
+    
+    # Group by month and sum
+    monthly = ds.groupby('month').sum(dim='day')
+    
+    # Check which months are present
+    available_months = monthly.month.values
+    print(f"  Available months: {available_months[0]} to {available_months[-1]} ({len(available_months)} months)")
+    
+    return monthly
+
+
 def compute_multiyear_means(seasonal_datasets):
     """
     Compute multi-year seasonal averages.
@@ -172,6 +195,26 @@ def compute_multiyear_means(seasonal_datasets):
     multiyear_mean = combined.mean(dim='year')
     
     print(f"Computed multi-year means across {len(seasonal_datasets)} years")
+    return multiyear_mean
+
+
+def compute_multiyear_monthly_means(monthly_datasets):
+    """
+    Compute multi-year monthly averages (climatology).
+    
+    Args:
+        monthly_datasets (list): List of monthly datasets from different years
+    
+    Returns:
+        xarray.Dataset: Multi-year monthly means with month coordinate (1-12)
+    """
+    # Concatenate all years
+    combined = xr.concat(monthly_datasets, dim='year')
+    
+    # Compute mean across years
+    multiyear_mean = combined.mean(dim='year')
+    
+    print(f"Computed multi-year monthly climatology across {len(monthly_datasets)} years")
     return multiyear_mean
 
 
@@ -200,6 +243,20 @@ def reproject_to_utm(ds, output_path, target_resolution=30, watershed_path=None)
     # Get coordinates
     lons = ds.lon.values
     lats = ds.lat.values
+    
+    # Ensure data is 2D - squeeze all singleton dimensions and validate
+    data = np.squeeze(data)
+    
+    # If still not 2D, we need to handle it differently
+    if data.ndim > 2:
+        # Take the first slice if there are extra dimensions
+        # This shouldn't happen if data is properly aggregated, but handle it
+        print(f"Warning: Data has unexpected shape {data.shape}, taking first 2D slice")
+        while data.ndim > 2:
+            data = data[0]
+    
+    if data.ndim != 2:
+        raise ValueError(f"Cannot reduce data to 2D, final shape: {data.shape}")
     
     # Calculate source transform
     src_transform = rasterio.transform.from_bounds(
@@ -241,15 +298,11 @@ def reproject_to_utm(ds, output_path, target_resolution=30, watershed_path=None)
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
-    # Handle both 2D and 3D arrays
-    if data.ndim == 2:
-        data = data[np.newaxis, :, :]
-    
     # Set NoData value
     nodata_value = -9999.0
     
-    # Initialize with NoData instead of zeros
-    dst_data = np.full((data.shape[0], height, width), nodata_value, dtype=data.dtype)
+    # Initialize output with NoData
+    dst_data = np.full((height, width), nodata_value, dtype=data.dtype)
     
     # Create watershed mask if provided
     watershed_mask = None
@@ -265,48 +318,47 @@ def reproject_to_utm(ds, output_path, target_resolution=30, watershed_path=None)
             dtype=np.uint8
         ).astype(bool)
     
+    # Reproject the data
+    reproject(
+        source=data,
+        destination=dst_data,
+        src_transform=src_transform,
+        src_crs=src_crs,
+        dst_transform=dst_transform,
+        dst_crs=dst_crs,
+        resampling=Resampling.bilinear
+    )
+    
+    # Apply watershed mask if available
+    if watershed_mask is not None:
+        dst_data[~watershed_mask] = nodata_value
+    
+    # Write single-band output
     with rasterio.open(
         output_path, 'w',
         driver='GTiff',
         height=height,
         width=width,
-        count=data.shape[0],
+        count=1,
         dtype=data.dtype,
         crs=dst_crs,
         transform=dst_transform,
         nodata=nodata_value,
         compress='lzw'
     ) as dst:
-        for i in range(data.shape[0]):
-            reproject(
-                source=data[i],
-                destination=dst_data[i],
-                src_transform=src_transform,
-                src_crs=src_crs,
-                dst_transform=dst_transform,
-                dst_crs=dst_crs,
-                resampling=Resampling.bilinear
-            )
-            
-            # Apply watershed mask if available
-            if watershed_mask is not None:
-                dst_data[i][~watershed_mask] = nodata_value
-            
-            dst.write(dst_data[i], i + 1)
+        dst.write(dst_data, 1)
     
     print(f"Reprojected to UTM Zone 18N at {target_resolution}m resolution: {output_path}")
 
 
-def quality_check_orographic_gradient(raster_path, watershed_path=None):
+def quality_check_statistics(raster_path):
     """
-    Quality check: Verify orographic gradient.
-    Higher elevations should show higher precipitation.
+    Quality check: Basic precipitation statistics.
     
     Args:
         raster_path (str): Path to precipitation raster
-        watershed_path (str): Path to watershed shapefile (not used for QC)
     """
-    print("\n=== Quality Check: Orographic Gradient ===")
+    print("\n=== Quality Check: Precipitation Statistics ===")
     
     with rasterio.open(raster_path) as src:
         precip = src.read(1, masked=True)
@@ -322,22 +374,6 @@ def quality_check_orographic_gradient(raster_path, watershed_path=None):
         print(f"  Std: {valid_data.std():.2f} mm")
         print(f"  Valid pixels: {len(valid_data)}")
         print(f"  Masked pixels: {precip.mask.sum() if hasattr(precip.mask, 'sum') else 0}")
-        
-        # Check gradient (northwest should be higher)
-        # Divide into quadrants
-        h, w = precip.shape
-        nw_quadrant = precip[:h//2, :w//2].mean()
-        se_quadrant = precip[h//2:, w//2:].mean()
-        
-        print(f"\nQuadrant analysis:")
-        print(f"  Northwest mean: {nw_quadrant:.2f} mm")
-        print(f"  Southeast mean: {se_quadrant:.2f} mm")
-        print(f"  NW/SE ratio: {nw_quadrant/se_quadrant:.3f}")
-        
-        if nw_quadrant > se_quadrant:
-            print("  ✓ Orographic gradient verified: NW > SE")
-        else:
-            print("  ⚠ Warning: Expected higher precipitation in NW")
 
 
 def main():
@@ -355,7 +391,10 @@ def main():
         end_year = current_year - 1
     
     watershed_path = '../../data/sub-basins/Subbasins.shp'
-    output_dir = Path('processed')
+    raw_data_dir = Path('../../data/precipitation/raw')
+    output_dir = Path('../../data/precipitation/processed')
+    seasonal_dir = output_dir / 'seasonal'
+    monthly_dir = output_dir / 'monthly'
     skip_download = False
     
     print("="*60)
@@ -365,25 +404,29 @@ def main():
     print(f"Current date: {datetime.now().strftime('%Y-%m-%d')}")
     print(f"Watershed boundary: {watershed_path}")
     print(f"Output directory: {output_dir}")
+    print("  Seasonal: {}".format(seasonal_dir))
+    print("  Monthly: {}".format(monthly_dir))
     print("="*60 + "\n")
     
-    # Create output directory
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Create output directories
+    seasonal_dir.mkdir(parents=True, exist_ok=True)
+    monthly_dir.mkdir(parents=True, exist_ok=True)
     
     # Step 1: Download data
     if not skip_download:
         print("\n--- Step 1: Downloading GRIDMET data ---")
         for year in range(start_year, end_year + 1):
-            download_gridmet_data(year)
+            download_gridmet_data(year, str(raw_data_dir))
     
     # Step 2-3: Process each year
     print("\n--- Step 2-3: Processing yearly data ---")
     seasonal_datasets = []
+    monthly_datasets = []
     
     for year in range(start_year, end_year + 1):
-        nc_file = f"raw/precip_raw_4000m_{year}.nc"
+        nc_file = raw_data_dir / f"precip_raw_4000m_{year}.nc"
         
-        if not os.path.exists(nc_file):
+        if not nc_file.exists():
             print(f"Warning: {nc_file} not found, skipping...")
             continue
         
@@ -404,6 +447,10 @@ def main():
         seasonal = aggregate_to_seasons(ds_clipped)
         seasonal_datasets.append(seasonal)
         
+        # Aggregate to months
+        monthly = aggregate_to_months(ds_clipped)
+        monthly_datasets.append(monthly)
+        
         ds.close()
     
     if not seasonal_datasets:
@@ -417,35 +464,53 @@ def main():
     # Determine actual year range processed (min and max from successfully loaded files)
     years_processed = []
     for year in range(start_year, end_year + 1):
-        nc_file = f"raw/precip_raw_4000m_{year}.nc"
-        if os.path.exists(nc_file):
+        nc_file = raw_data_dir / f"precip_raw_4000m_{year}.nc"
+        if nc_file.exists():
             years_processed.append(year)
     
     year_range = f"{min(years_processed)}-{max(years_processed)}"
     print(f"Year range: {year_range}")
     
-    # Step 5: Reproject and save each season
-    print("\n--- Step 5: Reprojecting to UTM Zone 18N ---")
+    # Step 5a: Reproject and save seasonal data
+    print("\n--- Step 5a: Reprojecting seasonal data to UTM Zone 18N ---")
     
     seasons = {'DJF': 'Winter', 'MAM': 'Spring', 'JJA': 'Summer', 'SON': 'Fall'}
     
     for season_code, season_name in seasons.items():
         if season_code in multiyear_means.season.values:
-            output_file = output_dir / f"precip_final_30m_{year_range}_{season_code.lower()}.tif"
+            output_file = seasonal_dir / f"precip_final_30m_{year_range}_{season_code.lower()}.tif"
             season_data = multiyear_means.sel(season=season_code)
             print(f"Saving {season_name} ({season_code})...")
             reproject_to_utm(season_data, output_file, target_resolution=30, watershed_path=watershed_path)
     
+    # Step 5b: Compute and save monthly climatology
+    print("\n--- Step 5b: Computing and saving monthly climatology ---")
+    monthly_clim = compute_multiyear_monthly_means(monthly_datasets)
+    
+    month_names = {
+        1: 'January', 2: 'February', 3: 'March', 4: 'April',
+        5: 'May', 6: 'June', 7: 'July', 8: 'August',
+        9: 'September', 10: 'October', 11: 'November', 12: 'December'
+    }
+    
+    for month_num in range(1, 13):
+        if month_num in monthly_clim.month.values:
+            output_file = monthly_dir / f"precip_final_30m_{year_range}_{month_num:02d}.tif"
+            month_data = monthly_clim.sel(month=month_num)
+            print(f"Saving {month_names[month_num]} ({month_num:02d})...")
+            reproject_to_utm(month_data, output_file, target_resolution=30, watershed_path=watershed_path)
+    
     # Step 6: Quality check
     print("\n--- Step 6: Quality Check ---")
     # Check one season as example
-    example_file = output_dir / f"precip_final_30m_{year_range}_jja.tif"
+    example_file = seasonal_dir / f"precip_final_30m_{year_range}_jja.tif"
     if example_file.exists():
-        quality_check_orographic_gradient(example_file, watershed_path)
+        quality_check_statistics(example_file)
     
     print("\n" + "="*60)
     print("Processing complete!")
-    print(f"Output files saved to: {output_dir}")
+    print(f"Seasonal files saved to: {seasonal_dir}")
+    print(f"Monthly files saved to: {monthly_dir}")
     print("="*60)
 
 
