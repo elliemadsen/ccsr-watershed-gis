@@ -47,7 +47,7 @@ except ImportError:
 
 # Configuration
 CHANGE_FACTORS_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'change_factors'
-GRIDMET_DIR = Path(__file__).parent.parent / 'gridmet' / 'processed'
+GRIDMET_DIR = Path(__file__).parent.parent / 'gridmet' / 'processed' / 'seasonal'
 OUTPUT_DIR = Path(__file__).parent / 'future_projections'
 
 # Models to process
