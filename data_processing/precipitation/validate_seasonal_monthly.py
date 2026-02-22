@@ -3,15 +3,21 @@
 Validate that seasonal precipitation equals the sum of monthly precipitation.
 
 This script checks that:
-- DJF (Dec+Jan+Feb) = monthly 12 + 1 + 2
-- MAM (Mar+Apr+May) = monthly 3 + 4 + 5
-- JJA (Jun+Jul+Aug) = monthly 6 + 7 + 8
-- SON (Sep+Oct+Nov) = monthly 9 + 10 + 11
+- Multi-year seasonal averages (processed/seasonal/) equal the average of 
+  individual year-month sums from monthly files (monthly/)
+- DJF = average of (Dec_Y + Jan_Y + Feb_Y) across years (same calendar year)
+- MAM = average of (Mar_Y + Apr_Y + May_Y) for each year
+- JJA = average of (Jun_Y + Jul_Y + Aug_Y) for each year
+- SON = average of (Sep_Y + Oct_Y + Nov_Y) for each year
+
+Note: DJF uses December, January, February from the SAME calendar year,
+matching xarray's dt.season behavior.
 """
 
 import rasterio
 import numpy as np
 from pathlib import Path
+import glob
 
 # Season to month mapping
 SEASONS = {
@@ -38,8 +44,11 @@ def validate_seasonal_monthly(year_range='2015-2025', tolerance=0.1):
     Returns:
         bool: True if validation passes
     """
+    # Parse year range
+    start_year, end_year = map(int, year_range.split('-'))
+    
     base_dir = Path('../../data/precipitation/processed')
-    seasonal_dir = base_dir / 'seasonal'
+    seasonal_dir = base_dir  / 'seasonal'
     monthly_dir = base_dir / 'monthly'
     
     print("="*60)
@@ -49,9 +58,10 @@ def validate_seasonal_monthly(year_range='2015-2025', tolerance=0.1):
     print(f"Tolerance: {tolerance}%\n")
     
     all_valid = True
+    all_missing_files = []
     
     for season_code, months in SEASONS.items():
-        # Load seasonal file
+        # Load seasonal multi-year average file
         seasonal_file = seasonal_dir / f'precip_final_30m_{year_range}_{season_code}.tif'
         
         if not seasonal_file.exists():
@@ -61,32 +71,49 @@ def validate_seasonal_monthly(year_range='2015-2025', tolerance=0.1):
         
         seasonal_data = load_raster(seasonal_file)
         
-        # Load and sum monthly files
-        monthly_sum = None
-        missing_months = []
+        # Compute multi-year average from individual monthly files
+        yearly_seasonal_sums = []
+        years_processed = []
         
-        for month in months:
-            monthly_file = monthly_dir / f'precip_final_30m_{year_range}_{month:02d}.tif'
+        for year in range(start_year, end_year + 1):
+            # All months are from the same calendar year
+            # (dt.season groups Dec, Jan, Feb all from the same year as DJF)
+            monthly_sum = None
+            missing_months = []
             
-            if not monthly_file.exists():
-                missing_months.append(month)
+            for month in months:
+                monthly_file = monthly_dir / f'precip_30m_{year}_{month:02d}.tif'
+                
+                if not monthly_file.exists():
+                    missing_months.append((year, month, str(monthly_file)))
+                    continue
+                
+                monthly_data = load_raster(monthly_file)
+                
+                if monthly_sum is None:
+                    monthly_sum = monthly_data.copy()
+                else:
+                    monthly_sum += monthly_data
+            
+            # Skip years with missing data
+            if missing_months:
+                all_missing_files.extend(missing_months)
                 continue
             
-            monthly_data = load_raster(monthly_file)
-            
-            if monthly_sum is None:
-                monthly_sum = monthly_data.copy()
-            else:
-                monthly_sum += monthly_data
+            yearly_seasonal_sums.append(monthly_sum)
+            years_processed.append(year)
         
-        if missing_months:
-            print(f"❌ {season_code.upper()}: Missing monthly files for months {missing_months}")
+        if not yearly_seasonal_sums:
+            print(f"❌ {season_code.upper()}: No complete yearly data found")
             all_valid = False
             continue
         
-        # Compare seasonal vs sum of monthly
-        # Use only valid (non-masked) pixels for comparison
-        valid_mask = ~seasonal_data.mask & ~monthly_sum.mask
+        # Stack and compute mean across years
+        stacked = np.ma.stack(yearly_seasonal_sums)
+        monthly_multiyear_mean = np.ma.mean(stacked, axis=0)
+        
+        # Compare seasonal vs multi-year mean of monthly
+        valid_mask = ~seasonal_data.mask & ~monthly_multiyear_mean.mask
         
         if not np.any(valid_mask):
             print(f"❌ {season_code.upper()}: No valid pixels to compare")
@@ -94,7 +121,7 @@ def validate_seasonal_monthly(year_range='2015-2025', tolerance=0.1):
             continue
         
         seasonal_valid = seasonal_data[valid_mask]
-        monthly_valid = monthly_sum[valid_mask]
+        monthly_valid = monthly_multiyear_mean[valid_mask]
         
         # Calculate difference
         diff = np.abs(seasonal_valid - monthly_valid)
@@ -115,10 +142,23 @@ def validate_seasonal_monthly(year_range='2015-2025', tolerance=0.1):
         print(f"   Mean difference: {mean_diff:.2f} mm ({pct_diff:.3f}%)")
         print(f"   Max difference: {max_diff:.2f} mm")
         print(f"   Valid pixels: {np.sum(valid_mask)}")
+        print(f"   Years validated: {len(years_processed)} ({min(years_processed)}-{max(years_processed)})")
         
         if not passed:
             all_valid = False
         
+        print()
+    
+    # Print summary of missing files if any
+    if all_missing_files:
+        print("="*60)
+        print(f"⚠️  Missing Files Summary ({len(all_missing_files)} files not found):")
+        print("="*60)
+        # Show up to 10 examples
+        for file_year, month, file_path in all_missing_files[:10]:
+            print(f"   {file_path}")
+        if len(all_missing_files) > 10:
+            print(f"   ... and {len(all_missing_files) - 10} more")
         print()
     
     print("="*60)
