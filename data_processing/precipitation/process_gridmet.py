@@ -5,10 +5,10 @@ GRIDMET Precipitation Processing Script
 This script processes GRIDMET daily precipitation data:
 1. Downloads GRIDMET precipitation data from 2015 to present
 2. Clips to DEM boundary
-3. Aggregates to seasonal totals (DJF, MAM, JJA, SON)
-4. Computes multi-year seasonal averages
+3. Aggregates to seasonal totals (DJF, MAM, JJA, SON) and individual monthly totals
+4. Computes multi-year seasonal averages (seasonal only, not monthly)
 5. Reprojects to UTM Zone 18N and resamples to 30m resolution
-6. Performs quality check for orographic gradient
+6. Performs quality check with basic statistics
 
 Usage:
     python process_gridmet.py
@@ -155,18 +155,20 @@ def aggregate_to_seasons(ds):
     return seasonal
 
 
-def aggregate_to_months(ds):
+def aggregate_to_months(ds, year):
     """
-    Aggregate daily precipitation to monthly totals.
+    Aggregate daily precipitation to monthly totals for a specific year.
     
     Args:
         ds (xarray.Dataset): Daily precipitation dataset
+        year (int): Year being processed
     
     Returns:
-        xarray.Dataset: Monthly totals with month coordinate (1-12)
+        dict: Dictionary mapping (year, month) to monthly datasets
     """
     # Create month number coordinate
     ds = ds.assign_coords(month=ds['day'].dt.month)
+    ds = ds.assign_coords(year=ds['day'].dt.year)
     
     # Group by month and sum
     monthly = ds.groupby('month').sum(dim='day')
@@ -175,7 +177,12 @@ def aggregate_to_months(ds):
     available_months = monthly.month.values
     print(f"  Available months: {available_months[0]} to {available_months[-1]} ({len(available_months)} months)")
     
-    return monthly
+    # Return as dict with (year, month) keys
+    monthly_dict = {}
+    for month_num in available_months:
+        monthly_dict[(year, int(month_num))] = monthly.sel(month=month_num)
+    
+    return monthly_dict
 
 
 def compute_multiyear_means(seasonal_datasets):
@@ -195,26 +202,6 @@ def compute_multiyear_means(seasonal_datasets):
     multiyear_mean = combined.mean(dim='year')
     
     print(f"Computed multi-year means across {len(seasonal_datasets)} years")
-    return multiyear_mean
-
-
-def compute_multiyear_monthly_means(monthly_datasets):
-    """
-    Compute multi-year monthly averages (climatology).
-    
-    Args:
-        monthly_datasets (list): List of monthly datasets from different years
-    
-    Returns:
-        xarray.Dataset: Multi-year monthly means with month coordinate (1-12)
-    """
-    # Concatenate all years
-    combined = xr.concat(monthly_datasets, dim='year')
-    
-    # Compute mean across years
-    multiyear_mean = combined.mean(dim='year')
-    
-    print(f"Computed multi-year monthly climatology across {len(monthly_datasets)} years")
     return multiyear_mean
 
 
@@ -421,7 +408,7 @@ def main():
     # Step 2-3: Process each year
     print("\n--- Step 2-3: Processing yearly data ---")
     seasonal_datasets = []
-    monthly_datasets = []
+    monthly_datasets = {}  # Dict with (year, month) keys
     
     for year in range(start_year, end_year + 1):
         nc_file = raw_data_dir / f"precip_raw_4000m_{year}.nc"
@@ -448,8 +435,8 @@ def main():
         seasonal_datasets.append(seasonal)
         
         # Aggregate to months
-        monthly = aggregate_to_months(ds_clipped)
-        monthly_datasets.append(monthly)
+        monthly = aggregate_to_months(ds_clipped, year)
+        monthly_datasets.update(monthly)
         
         ds.close()
     
@@ -483,22 +470,17 @@ def main():
             print(f"Saving {season_name} ({season_code})...")
             reproject_to_utm(season_data, output_file, target_resolution=30, watershed_path=watershed_path)
     
-    # Step 5b: Compute and save monthly climatology
-    print("\n--- Step 5b: Computing and saving monthly climatology ---")
-    monthly_clim = compute_multiyear_monthly_means(monthly_datasets)
+    # Step 5b: Save individual monthly files
+    print("\n--- Step 5b: Saving individual monthly files ---")
     
-    month_names = {
-        1: 'January', 2: 'February', 3: 'March', 4: 'April',
-        5: 'May', 6: 'June', 7: 'July', 8: 'August',
-        9: 'September', 10: 'October', 11: 'November', 12: 'December'
-    }
+    # Sort by year and month for organized output
+    sorted_keys = sorted(monthly_datasets.keys())
     
-    for month_num in range(1, 13):
-        if month_num in monthly_clim.month.values:
-            output_file = monthly_dir / f"precip_final_30m_{year_range}_{month_num:02d}.tif"
-            month_data = monthly_clim.sel(month=month_num)
-            print(f"Saving {month_names[month_num]} ({month_num:02d})...")
-            reproject_to_utm(month_data, output_file, target_resolution=30, watershed_path=watershed_path)
+    for (year, month_num) in sorted_keys:
+        month_data = monthly_datasets[(year, month_num)]
+        output_file = monthly_dir / f"precip_30m_{year}_{month_num:02d}.tif"
+        print(f"Saving {year}-{month_num:02d}...")
+        reproject_to_utm(month_data, output_file, target_resolution=30, watershed_path=watershed_path)
     
     # Step 6: Quality check
     print("\n--- Step 6: Quality Check ---")
