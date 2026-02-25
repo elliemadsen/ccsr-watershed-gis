@@ -1,1 +1,3 @@
 data/precipitation/raw/*.nc filter=lfs diff=lfs merge=lfs -text
+data/hydrography/**/*.gdbtable filter=lfs diff=lfs merge=lfs -text
+data/hydrography/**/*.gdb/** filter=lfs diff=lfs merge=lfs -text
