@@ -2,20 +2,21 @@
 """
 Step 3: Apply change factors to observed GRIDMET baseline
 
-This script applies the computed change factors to the GRIDMET baseline 
-precipitation rasters to create future climate projections at 30m resolution.
+This script applies the computed change factors to the baseline GRIDMET
+precipitation rasters (2015-2025 @ 30m) to create future climate projections
+(2035-2064 @ 30m).
 
 The process:
-1. Load change factors for each model and season (point data at GCM grid scale)
+1. Load change factors for each model and season (point data at 6 GCM grid points)
 2. Interpolate change factors to 30m resolution using Inverse Distance Weighting (IDW)
-3. Multiply the interpolated change factors by the GRIDMET baseline rasters
+3. Multiply the interpolated change factors by the present GRIDMET baseline rasters (2015-2025)
 
 Interpolation method: IDW with power=2 (inverse square distance)
 - Creates smooth gradients between GCM grid points
 - More physically realistic than nearest neighbor (Voronoi)
 - Each pixel weighted by all GCM points based on distance
 
-Formula: precip_future_30m = precip_baseline_30m × CF_precip
+Formula: precip_future_30m (2035-2064) = precip_baseline_30m (2015-2025) × CF_precip
 
 Usage:
     python 3_apply_change_factors.py
@@ -46,12 +47,12 @@ except ImportError:
     sys.exit(1)
 
 # Configuration
-CHANGE_FACTORS_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'change_factors'
-GRIDMET_DIR = Path(__file__).parent.parent / 'gridmet' / 'processed' / 'seasonal'
-OUTPUT_DIR = Path(__file__).parent / 'future_projections'
+CHANGE_FACTORS_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'change_factors'
+GRIDMET_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'precipitation' / 'processed' / 'seasonal'
+OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'future_projections'
 
 # Models to process
-MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR']
+MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR', 'CMCC-ESM2', 'CNRM-CM6-1', 'INM-CM5-0']
 
 # Seasons (must match GRIDMET file names)
 SEASONS = ['djf', 'mam', 'jja', 'son']
@@ -284,8 +285,9 @@ def save_future_raster(data, profile, model_name, season, output_dir):
     filename = f'precip_future_{model_name}_{FUTURE_PERIOD}_{season}_30m.tif'
     output_path = output_dir / filename
     
-    # Update profile
+    # Update profile - ensure EPSG:32618
     profile.update(
+        crs='EPSG:32618',  # WGS84 / UTM zone 18N
         dtype=rasterio.float32,
         compress='lzw',
         tiled=True,

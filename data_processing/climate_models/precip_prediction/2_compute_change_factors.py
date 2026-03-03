@@ -3,18 +3,23 @@
 Step 2: Compute precipitation change factors
 
 This script computes change factors (CF) for each GCM and season by dividing
-future seasonal means by historical seasonal means. The change factors represent
-the multiplicative change in precipitation between periods.
+GCM future seasonal means by GRIDMET historical seasonal means. The change factors
+represent the multiplicative change in precipitation between periods.
 
-Formula: CF_precip = mean_future_season / mean_historical_season
+Formula: CF_precip = mean_future_season (GCM) / mean_historical_season (GRIDMET)
 
-- If historical mean < 0.1 mm (converted from kg/m²/s), set CF = 1.0
+Key characteristics:
+- Historical baseline: GRIDMET observed data (1990-2019) at 6 GCM grid points
+- Future projections: GCM data (2035-2064) at the same grid points
+- All GCMs use the same GRIDMET historical baseline for consistency
+- If historical mean < 1e-6 kg/m²/s, set CF = 1.0 to avoid division errors
 
 Usage:
-    python step2_compute_change_factors.py
+    python 2_compute_change_factors.py
 
 Output:
-    - change_factors_{model}_pr_ssp370.csv: Change factors for each grid cell and season
+    - change_factors_{model}_pr_ssp370.csv: Change factors (tabular format)
+    - change_factors_{model}_pr_ssp370.geojson: Change factors (spatial format)
     - change_factors_summary.csv: Summary statistics across models and seasons
 """
 
@@ -26,11 +31,11 @@ import json
 # Configuration
 # Data is in ccsr-watershed-gis/data/climate_models/
 # Scripts are in ccsr-watershed-gis/data_processing/climate_models/
-DATA_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'seasonal_means'
-OUTPUT_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'change_factors'
+DATA_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'seasonal_means'
+OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'change_factors'
 
 # Models to process
-MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR']
+MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR', 'CMCC-ESM2', 'CNRM-CM6-1', 'INM-CM5-0']
 
 # Threshold for near-zero precipitation (in kg/m²/s)
 # 0.1 mm/day ≈ 1.16e-6 kg/m²/s (0.1 mm/day * 1 kg/m²/mm * 1 day/86400 s)
@@ -252,9 +257,10 @@ def save_change_factors_geojson(change_factors, model_name):
             'model': model_name,
             'variable': 'precipitation',
             'scenario': 'ssp370',
-            'historical_period': '2015-2019',
+            'historical_period': '1990-2019',
             'future_period': '2035-2064',
-            'description': 'Precipitation change factors (future/historical) by season'
+            'baseline_source': 'GRIDMET',
+            'description': 'Precipitation change factors (GCM future / GRIDMET historical) by season'
         }
     }
     

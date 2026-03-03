@@ -39,10 +39,14 @@ data/
 ├── CDL/                       # Cropland Data Layer
 ├── climate_models/            # Climate model outputs
 ├── DEM/                       # Digital Elevation Models
+├── hydrography/               # National Hydrography Database
 ├── NLCD/                      # National Land Cover Database
 ├── precipitation/             # Precipitation data
 ├── runoff_coefficient/        # Runoff coefficient rasters
-└── sub-basins/                # Watershed boundary shapefiles
+├── stream_proximity/          # Stream network and proximity data
+├── sub-basins/                # Watershed boundary shapefiles
+└── topographic_wetness_index/ # Topographic Wetness Index data
+
 ```
 
 ---
@@ -56,7 +60,9 @@ data_processing/
 ├── climate_models/
 │   ├── precip_prediction/     # Climate prediction pipeline scripts
 │   └── web-viz/               # Scripts for web viz data prep
-└── precipitation/             # GRIDMET data processing
+├── precipitation/             # GRIDMET data processing
+└── stream_proximity/          # Flow accumulation, stream network and proximity analysis
+
 ```
 
 ---

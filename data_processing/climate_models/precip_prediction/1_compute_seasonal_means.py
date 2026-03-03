@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """
 Step 1: Compute seasonal means for historical (GRIDMET) and future (GCM) periods
-- Historical: GRIDMET observed data (1990-2019, downloaded if needed)
-- Future: GCM projection data (2035-2064) for each model
 
+This script computes seasonal precipitation means at the 6 GCM grid points covering
+the watershed for two time periods:
 
+- Historical (1990-2019): GRIDMET observed data, downloaded if needed
+- Future (2035-2064): GCM projection data for each model
+
+These means are used in Step 2 to compute change factors. Note that the present
+baseline rasters (2015-2025 @ 30m) used in Step 3 are separate files.
 
 Seasons:
 - DJF: December, January, February (Winter)
@@ -31,9 +36,9 @@ from datetime import datetime
 # Configuration
 # Data is in ccsr-watershed-gis/data/climate_models/
 # Scripts are in ccsr-watershed-gis/data_processing/climate_models/
-GCM_DATA_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'daily'
-GRIDMET_RAW_DIR = Path(__file__).parent.parent / 'gridmet' / 'raw'
-OUTPUT_DIR = Path(__file__).parent.parent.parent / 'data' / 'climate_models' / 'seasonal_means'
+GCM_DATA_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'daily'
+GRIDMET_RAW_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'precipitation' / 'raw'
+OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'seasonal_means'
 HISTORICAL_PERIOD = (1990, 2019)
 FUTURE_PERIOD = (2035, 2064)
 
@@ -49,7 +54,7 @@ GCM_GRID_POINTS = [
 ]
 
 # Models to process
-MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR']
+MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR', 'CMCC-ESM2', 'CNRM-CM6-1', 'INM-CM5-0']
 
 # Season definitions (month numbers)
 SEASONS = {
@@ -83,6 +88,8 @@ def download_gridmet_data(year):
     # Use new naming convention: precip_raw_4000m_YYYY.nc
     filename = f"precip_raw_4000m_{year}.nc"
     filepath = GRIDMET_RAW_DIR / filename
+
+    print(f"filepath: {filepath}")
     
     if filepath.exists():
         print(f"  File already exists: {filename}")
@@ -183,6 +190,8 @@ def load_precipitation_data(model_name):
         DataFrame with datetime index and grid cell columns (units: kg/m² per day)
     """
     file_path = GCM_DATA_DIR / f'Catskills_{model_name}_pr_ssp370_daily_avg.csv'
+
+    print(f"file_path: {file_path}")
     
     if not file_path.exists():
         raise FileNotFoundError(f"Data file not found: {file_path}")
@@ -349,6 +358,8 @@ def save_gridmet_historical(hist_means):
     """
     # Create output directory if it doesn't exist
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    print(f"OUTPUT_DIR: {OUTPUT_DIR}")
     
     # Save historical means
     hist_file = OUTPUT_DIR / 'seasonal_means_historical_gridmet_pr.csv'
