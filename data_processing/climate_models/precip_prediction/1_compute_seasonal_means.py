@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Step 1: Compute seasonal means for historical (GRIDMET) and future (GCM) periods
+Step 1: Compute seasonal means for historical and future periods (both from GCM data)
 
 This script computes seasonal precipitation means at the 6 GCM grid points covering
-the watershed for two time periods:
+the watershed for two time periods from each GCM model:
 
-- Historical (1990-2019): GRIDMET observed data, downloaded if needed
-- Future (2035-2064): GCM projection data for each model
+- Historical (1990-2019): GCM modeled historical data
+- Future (2035-2064): GCM projection data
 
-These means are used in Step 2 to compute change factors. Note that the present
-baseline rasters (2015-2025 @ 30m) used in Step 3 are separate files.
+These means are used in Step 2 to compute change factors (GCM_future / GCM_historical).
+This approach keeps GCM biases consistent by comparing within the same model.
 
 Seasons:
 - DJF: December, January, February (Winter)
@@ -21,7 +21,7 @@ Usage:
     python 1_compute_seasonal_means.py
 
 Output:
-    - seasonal_means_historical_gridmet_pr.csv: GRIDMET historical means (at GCM grid points)
+    - seasonal_means_historical_{model}_pr_ssp370.csv: GCM historical means
     - seasonal_means_future_{model}_pr_ssp370.csv: GCM future means
 """
 
@@ -29,29 +29,15 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import sys
-import subprocess
-import xarray as xr
-from datetime import datetime
 
 # Configuration
 # Data is in ccsr-watershed-gis/data/climate_models/
 # Scripts are in ccsr-watershed-gis/data_processing/climate_models/
-GCM_DATA_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'daily'
-GRIDMET_RAW_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'precipitation' / 'raw'
-OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'seasonal_means'
+GCM_HISTORICAL_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'raw' / 'daily_1990_2015'
+GCM_FUTURE_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'raw' / 'daily_2015_2065'
+OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'precip_prediction' / '1_seasonal_means'
 HISTORICAL_PERIOD = (1990, 2019)
 FUTURE_PERIOD = (2035, 2064)
-
-# GCM grid points covering the watershed (from change_factors GeoJSON)
-# These are the centroids where we need to extract GRIDMET data
-GCM_GRID_POINTS = [
-    (-75.125, 42.125),
-    (-74.875, 42.125),
-    (-74.625, 42.125),
-    (-75.125, 42.375),
-    (-74.875, 42.375),
-    (-74.625, 42.375)
-]
 
 # Models to process
 MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR', 'CMCC-ESM2', 'CNRM-CM6-1', 'INM-CM5-0']
@@ -73,123 +59,24 @@ def assign_season(month):
     return None
 
 
-def download_gridmet_data(year):
+def load_precipitation_data(model_name, period):
     """
-    Download GRIDMET precipitation data for a specific year.
-    
-    Args:
-        year: Year to download
-        
-    Returns:
-        Path to downloaded file or None if failed
-    """
-    GRIDMET_RAW_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # Use new naming convention: precip_raw_4000m_YYYY.nc
-    filename = f"precip_raw_4000m_{year}.nc"
-    filepath = GRIDMET_RAW_DIR / filename
-
-    print(f"filepath: {filepath}")
-    
-    if filepath.exists():
-        print(f"  File already exists: {filename}")
-        return filepath
-    
-    # GRIDMET server uses pr_YYYY.nc naming
-    source_filename = f"pr_{year}.nc"
-    url = f"http://www.northwestknowledge.net/metdata/data/{source_filename}"
-    print(f"  Downloading {source_filename} as {filename}...")
-    
-    try:
-        subprocess.run(['wget', '-nc', '-c', '-O', str(filepath), url], 
-                      check=True, capture_output=True, text=True)
-        print(f"  Successfully downloaded {filename}")
-        return filepath
-    except subprocess.CalledProcessError as e:
-        print(f"  ERROR downloading {filename}: {e}")
-        return None
-
-
-def extract_gridmet_at_points(year, grid_points):
-    """
-    Extract GRIDMET precipitation data at specific lat/lon points.
-    
-    Args:
-        year: Year to process
-        grid_points: List of (lon, lat) tuples
-        
-    Returns:
-        DataFrame with daily precipitation at each grid point (in kg/m²)
-    """
-    # Download if needed
-    filepath = download_gridmet_data(year)
-    if filepath is None:
-        return None
-    
-    # Load GRIDMET data
-    ds = xr.open_dataset(filepath)
-    
-    # Extract data at each grid point
-    data = {}
-    for lon, lat in grid_points:
-        # Find nearest grid cell in GRIDMET data
-        point_data = ds['precipitation_amount'].sel(
-            lon=lon, lat=lat, method='nearest'
-        )
-        # GRIDMET units are mm, which equals kg/m² for water
-        # (no conversion needed: 1 mm water = 1 kg/m²)
-        data[f'({lat}, {lon})'] = point_data.values
-    
-    # Create DataFrame with dates
-    df = pd.DataFrame(data, index=pd.to_datetime(ds['day'].values))
-    ds.close()
-    
-    return df
-
-
-def load_gridmet_historical():
-    """
-    Load and process GRIDMET historical data (1990-2019) at GCM grid points.
-    
-    Returns:
-        DataFrame with daily precipitation at GCM grid points
-    """
-    print("\nLoading GRIDMET historical data (1990-2019)...")
-    print("=" * 60)
-    
-    all_years = []
-    hist_start, hist_end = HISTORICAL_PERIOD
-    
-    for year in range(hist_start, hist_end + 1):
-        print(f"Processing {year}...")
-        df_year = extract_gridmet_at_points(year, GCM_GRID_POINTS)
-        if df_year is not None:
-            all_years.append(df_year)
-        else:
-            print(f"  WARNING: Could not load data for {year}")
-    
-    if not all_years:
-        raise RuntimeError("No GRIDMET data could be loaded!")
-    
-    # Concatenate all years
-    df = pd.concat(all_years)
-    print(f"\nLoaded {len(df)} days from {df.index.min()} to {df.index.max()}")
-    print(f"Grid points: {len(df.columns)}")
-    
-    return df
-
-
-def load_precipitation_data(model_name):
-    """
-    Load daily precipitation data for a given GCM model.
+    Load daily precipitation data for a given GCM model and period.
     
     Args:
         model_name: Name of the GCM model
+        period: 'historical' (1990-2015) or 'future' (2015-2065)
         
     Returns:
         DataFrame with datetime index and grid cell columns (units: kg/m² per day)
     """
-    file_path = GCM_DATA_DIR / f'Catskills_{model_name}_pr_ssp370_daily_avg.csv'
+    # Select the appropriate directory and filename based on period
+    if period == 'historical':
+        data_dir = GCM_HISTORICAL_DIR
+        file_path = data_dir / f'Catskills_{model_name}_pr_historical_daily_avg.csv'
+    else:
+        data_dir = GCM_FUTURE_DIR
+        file_path = data_dir / f'Catskills_{model_name}_pr_ssp370_daily_avg.csv'
 
     print(f"file_path: {file_path}")
     
@@ -270,170 +157,138 @@ def compute_seasonal_means(seasonal_totals):
     return seasonal_means
 
 
-def process_gcm_future(model_name):
+def process_gcm(model_name):
     """
-    Process GCM model: compute seasonal means for future period only.
+    Process GCM model: compute seasonal means for both historical and future periods.
     
     Args:
         model_name: Name of the GCM model
         
     Returns:
-        DataFrame with future seasonal means
+        Tuple of (historical seasonal means, future seasonal means)
     """
     print(f"\nProcessing GCM model: {model_name}")
     print("=" * 60)
     
-    # Load GCM data
-    df = load_precipitation_data(model_name)
+    # Load GCM historical data (1990-2014 from historical folder)
+    print("\nLoading historical period data (1990-2014)...")
+    df_hist_file = load_precipitation_data(model_name, 'historical')
+    hist_data_end = df_hist_file.index.max().year
+    print(f"Historical file data available from {df_hist_file.index.min().year} to {hist_data_end}")
     
-    # Check available data range
-    data_start_year = df.index.min().year
-    data_end_year = df.index.max().year
-    
-    print(f"Data available from {data_start_year} to {data_end_year}")
-    
-    # Process future period
-    fut_start, fut_end = FUTURE_PERIOD
-    if data_start_year > fut_start or data_end_year < fut_end:
-        print(f"WARNING: Future period ({fut_start}-{fut_end}) not fully covered by data")
-        fut_start = max(fut_start, data_start_year)
-        fut_end = min(fut_end, data_end_year)
-        print(f"  Using adjusted period: {fut_start}-{fut_end}")
-    
-    print(f"\nComputing seasonal totals for future period ({fut_start}-{fut_end})...")
-    fut_seasonal_totals = compute_seasonal_totals(df, fut_start, fut_end)
-    print(f"  Computed {len(fut_seasonal_totals)} year-season combinations")
-    
-    print(f"Computing seasonal means for future period...")
-    fut_seasonal_means = compute_seasonal_means(fut_seasonal_totals)
-    print(f"  Computed means for {len(fut_seasonal_means)} seasons")
-    
-    return fut_seasonal_means
-
-
-def process_gridmet_historical():
-    """
-    Process GRIDMET data: compute seasonal means for historical period.
-    
-    Returns:
-        DataFrame with historical seasonal means
-    """
-    print("\nProcessing GRIDMET historical data")
-    print("=" * 60)
-    
-    # Load GRIDMET data
-    df = load_gridmet_historical()
-    
-    # Process historical period
+    # Check if we need additional years from the future file to complete historical period (1990-2019)
     hist_start, hist_end = HISTORICAL_PERIOD
+    if hist_data_end < hist_end:
+        # Load future data file to get years 2015-2019
+        print(f"\nLoading additional years ({hist_data_end + 1}-{hist_end}) from future data file...")
+        df_future_file = load_precipitation_data(model_name, 'future')
+        
+        # Extract only the years we need for historical period
+        mask = (df_future_file.index.year >= hist_data_end + 1) & (df_future_file.index.year <= hist_end)
+        df_additional = df_future_file[mask]
+        print(f"Extracted {df_additional.index.min().year} to {df_additional.index.max().year} from future file")
+        
+        # Combine historical file data with additional years from future file
+        df_historical = pd.concat([df_hist_file, df_additional])
+        print(f"Combined historical period now covers {df_historical.index.min().year} to {df_historical.index.max().year}")
+    else:
+        df_historical = df_hist_file
     
-    # Check actual data range
-    data_start_year = df.index.min().year
-    data_end_year = df.index.max().year
-    
-    if data_start_year > hist_start:
-        print(f"\nWARNING: GRIDMET data starts in {data_start_year}, not {hist_start}")
-        hist_start = data_start_year
-    if data_end_year < hist_end:
-        print(f"WARNING: GRIDMET data ends in {data_end_year}, not {hist_end}")
-        hist_end = data_end_year
-    
+    # Process historical period (1990-2019)
     print(f"\nComputing seasonal totals for historical period ({hist_start}-{hist_end})...")
-    hist_seasonal_totals = compute_seasonal_totals(df, hist_start, hist_end)
+    hist_seasonal_totals = compute_seasonal_totals(df_historical, hist_start, hist_end)
     print(f"  Computed {len(hist_seasonal_totals)} year-season combinations")
     
     print(f"Computing seasonal means for historical period...")
     hist_seasonal_means = compute_seasonal_means(hist_seasonal_totals)
     print(f"  Computed means for {len(hist_seasonal_means)} seasons")
     
-    return hist_seasonal_means
+    # Load GCM future data (2015-2065) if not already loaded
+    if hist_data_end < hist_end:
+        # We already loaded df_future_file above, so just use it
+        print("\nUsing previously loaded future data file for future period...")
+    else:
+        # Need to load the future file
+        print("\nLoading future period data (2015-2065)...")
+        df_future_file = load_precipitation_data(model_name, 'future')
+    
+    # Check available data range for future
+    fut_data_start = df_future_file.index.min().year
+    fut_data_end = df_future_file.index.max().year
+    print(f"Future data available from {fut_data_start} to {fut_data_end}")
+    
+    # Process future period
+    fut_start, fut_end = FUTURE_PERIOD
+    if fut_data_start > fut_start or fut_data_end < fut_end:
+        print(f"WARNING: Future period ({fut_start}-{fut_end}) not fully covered by data")
+        fut_start = max(fut_start, fut_data_start)
+        fut_end = min(fut_end, fut_data_end)
+        print(f"  Using adjusted period: {fut_start}-{fut_end}")
+    
+    print(f"\nComputing seasonal totals for future period ({fut_start}-{fut_end})...")
+    fut_seasonal_totals = compute_seasonal_totals(df_future_file, fut_start, fut_end)
+    print(f"  Computed {len(fut_seasonal_totals)} year-season combinations")
+    
+    print(f"Computing seasonal means for future period...")
+    fut_seasonal_means = compute_seasonal_means(fut_seasonal_totals)
+    print(f"  Computed means for {len(fut_seasonal_means)} seasons")
+    
+    return hist_seasonal_means, fut_seasonal_means
 
 
-def save_gridmet_historical(hist_means):
+def save_gcm_seasonal_means(hist_means, fut_means, model_name):
     """
-    Save GRIDMET historical seasonal means to CSV file.
+    Save GCM historical and future seasonal means to CSV files.
     
     Args:
         hist_means: Historical seasonal means DataFrame
+        fut_means: Future seasonal means DataFrame
+        model_name: Name of the GCM model
     """
     # Create output directory if it doesn't exist
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    print(f"OUTPUT_DIR: {OUTPUT_DIR}")
     
     # Save historical means
-    hist_file = OUTPUT_DIR / 'seasonal_means_historical_gridmet_pr.csv'
+    hist_file = OUTPUT_DIR / f'seasonal_means_historical_{model_name}_pr_ssp370.csv'
     hist_means.to_csv(hist_file)
-    print(f"\nSaved GRIDMET historical seasonal means to: {hist_file}")
+    print(f"\nSaved GCM historical seasonal means to: {hist_file}")
     
-    # Print summary statistics
-    print("\nGRIDMET Historical Summary:")
-    print("-" * 60)
-    for season in ['DJF', 'MAM', 'JJA', 'SON']:
-        if season in hist_means.index:
-            hist_mean = hist_means.loc[season].mean()
-            print(f"{season}: {hist_mean:.6f} kg/m²/s")
-
-
-def save_gcm_future(fut_means, model_name, hist_means):
-    """
-    Save GCM future seasonal means to CSV file.
-    
-    Args:
-        fut_means: Future seasonal means DataFrame
-        model_name: Name of the GCM model
-        hist_means: Historical (GRIDMET) seasonal means for comparison
-    """
     # Save future means
     fut_file = OUTPUT_DIR / f'seasonal_means_future_{model_name}_pr_ssp370.csv'
     fut_means.to_csv(fut_file)
-    print(f"\nSaved GCM future seasonal means to: {fut_file}")
+    print(f"Saved GCM future seasonal means to: {fut_file}")
     
-    # Print summary statistics
-    print(f"\n{model_name} Future vs GRIDMET Historical:")
+    # Print summary statistics and comparison
+    print(f"\n{model_name} Historical vs Future:")
     print("-" * 60)
     for season in ['DJF', 'MAM', 'JJA', 'SON']:
         if season in hist_means.index and season in fut_means.index:
             hist_mean = hist_means.loc[season].mean()
             fut_mean = fut_means.loc[season].mean()
             change_pct = ((fut_mean - hist_mean) / hist_mean) * 100
-            print(f"{season}: GRIDMET={hist_mean:.6f}, "
-                  f"GCM_future={fut_mean:.6f}, "
+            print(f"{season}: Historical={hist_mean:.2f} kg/m², "
+                  f"Future={fut_mean:.2f} kg/m², "
                   f"Change={change_pct:+.2f}%")
 
 
 def main():
     """Main execution function."""
     print("=" * 60)
-    print("Step 1: Compute Seasonal Means")
+    print("Step 1: Compute Seasonal Means (GCM Historical and Future)")
     print("=" * 60)
-    print(f"\nHistorical period (GRIDMET): {HISTORICAL_PERIOD[0]}-{HISTORICAL_PERIOD[1]}")
+    print(f"\nHistorical period (GCM): {HISTORICAL_PERIOD[0]}-{HISTORICAL_PERIOD[1]}")
     print(f"Future period (GCM): {FUTURE_PERIOD[0]}-{FUTURE_PERIOD[1]}")
     print(f"\nGCM models to process: {', '.join(MODELS)}")
-    print(f"GCM grid points: {len(GCM_GRID_POINTS)}")
     
-    # Step 1a: Process GRIDMET historical (shared baseline for all models)
-    try:
-        print("\n" + "=" * 60)
-        print("STEP 1a: Process GRIDMET Historical Baseline")
-        print("=" * 60)
-        hist_means = process_gridmet_historical()
-        save_gridmet_historical(hist_means)
-    except Exception as e:
-        print(f"\nERROR processing GRIDMET historical: {e}")
-        import traceback
-        traceback.print_exc()
-        return
-    
-    # Step 1b: Process each GCM model's future projections
-    print("\n" + "=" * 60)
-    print("STEP 1b: Process GCM Future Projections")
-    print("=" * 60)
-    
+    # Process each GCM model
     for model_name in MODELS:
         try:
-            fut_means = process_gcm_future(model_name)
-            save_gcm_future(fut_means, model_name, hist_means)
+            print(f"\n" + "=" * 60)
+            print(f"Processing: {model_name}")
+            print("=" * 60)
+            
+            hist_means, fut_means = process_gcm(model_name)
+            save_gcm_seasonal_means(hist_means, fut_means, model_name)
         except Exception as e:
             print(f"\nERROR processing {model_name}: {e}")
             import traceback
@@ -444,8 +299,8 @@ def main():
     print("Step 1 completed!")
     print("=" * 60)
     print("\nOutput files:")
-    print("  - seasonal_means_historical_gridmet_pr.csv (shared baseline)")
     for model in MODELS:
+        print(f"  - seasonal_means_historical_{model}_pr_ssp370.csv")
         print(f"  - seasonal_means_future_{model}_pr_ssp370.csv")
 
 

@@ -1,0 +1,152 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.125,
+          42.125
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.125, -75.125)",
+        "lat": 42.125,
+        "lon": -75.125,
+        "cf_DJF": 1.0498183402294563,
+        "pct_change_DJF": 4.98183402294563,
+        "cf_JJA": 1.0688735178713475,
+        "pct_change_JJA": 6.8873517871347545,
+        "cf_MAM": 1.025977940924334,
+        "pct_change_MAM": 2.597794092433392,
+        "cf_SON": 1.004538848799145,
+        "pct_change_SON": 0.4538848799144901
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.875,
+          42.125
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.125, -74.875)",
+        "lat": 42.125,
+        "lon": -74.875,
+        "cf_DJF": 1.0500317908918704,
+        "pct_change_DJF": 5.003179089187038,
+        "cf_JJA": 1.0719611212591273,
+        "pct_change_JJA": 7.196112125912735,
+        "cf_MAM": 1.0219017527373884,
+        "pct_change_MAM": 2.190175273738837,
+        "cf_SON": 1.0024659261461206,
+        "pct_change_SON": 0.24659261461206228
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.625,
+          42.125
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.125, -74.625)",
+        "lat": 42.125,
+        "lon": -74.625,
+        "cf_DJF": 1.049831341145877,
+        "pct_change_DJF": 4.983134114587706,
+        "cf_JJA": 1.074908700270069,
+        "pct_change_JJA": 7.490870027006902,
+        "cf_MAM": 1.0178186735582255,
+        "pct_change_MAM": 1.7818673558225528,
+        "cf_SON": 1.0004188620632286,
+        "pct_change_SON": 0.041886206322860886
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.125,
+          42.375
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.375, -75.125)",
+        "lat": 42.375,
+        "lon": -75.125,
+        "cf_DJF": 1.0540501818401975,
+        "pct_change_DJF": 5.40501818401975,
+        "cf_JJA": 1.068817226771348,
+        "pct_change_JJA": 6.881722677134805,
+        "cf_MAM": 1.0269848062774134,
+        "pct_change_MAM": 2.69848062774134,
+        "cf_SON": 1.0061211880115972,
+        "pct_change_SON": 0.6121188011597223
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.875,
+          42.375
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.375, -74.875)",
+        "lat": 42.375,
+        "lon": -74.875,
+        "cf_DJF": 1.0532911320510363,
+        "pct_change_DJF": 5.3291132051036305,
+        "cf_JJA": 1.0718666060572166,
+        "pct_change_JJA": 7.186660605721662,
+        "cf_MAM": 1.0221201547139005,
+        "pct_change_MAM": 2.2120154713900497,
+        "cf_SON": 1.003264866215398,
+        "pct_change_SON": 0.326486621539801
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.625,
+          42.375
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.375, -74.625)",
+        "lat": 42.375,
+        "lon": -74.625,
+        "cf_DJF": 1.0521097917004036,
+        "pct_change_DJF": 5.210979170040364,
+        "cf_JJA": 1.0747961298536433,
+        "pct_change_JJA": 7.479612985364326,
+        "cf_MAM": 1.017206094512252,
+        "pct_change_MAM": 1.720609451225208,
+        "cf_SON": 1.0005562706051205,
+        "pct_change_SON": 0.05562706051205346
+      }
+    }
+  ],
+  "metadata": {
+    "model": "INM-CM5-0",
+    "variable": "precipitation",
+    "scenario": "ssp370",
+    "historical_period": "1990-2019",
+    "future_period": "2035-2064",
+    "baseline_source": "INM-CM5-0",
+    "description": "Precipitation change factors (INM-CM5-0 future / INM-CM5-0 historical) by season"
+  }
+}

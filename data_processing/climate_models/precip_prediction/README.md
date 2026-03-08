@@ -18,32 +18,37 @@ This selection strategy captures the envelope of plausible futures without requi
 
 ## 6.2 Downscaling Protocol (Delta-Change Approach)
 
-The GCM projections from NEX-GDDP-CMIP6 v2 are at ~25 km (0.25°) resolution. The delta-change method downscales these projections by computing how much future precipitation changes relative to a historical baseline, then applying that change ratio to the observed high-resolution GRIDMET data.
+The GCM projections from NEX-GDDP-CMIP6 v2 are at ~25 km (0.25°) resolution. The delta-change method downscales these projections by computing how much future precipitation changes relative to a historical baseline within the same GCM (to preserve model-specific biases), then applying that change ratio to the observed high-resolution GRIDMET data.
 
 **Three Time Periods:**
 
-1. **Historical period (1990-2019)**: GRIDMET observed data at GCM grid points, used as denominator for change factors
-2. **Future period (2035-2064)**: GCM projections at grid points, used as numerator for change factors
-3. **Present baseline period (2015-2025)**: High-resolution GRIDMET rasters (30m) that get multiplied by change factors
+1. **Historical period (1990-2019)**: GCM modeled historical data at grid points (denominator for change factors)
+2. **Future period (2035-2064)**: GCM future projections at grid points (numerator for change factors)
+3. **Present baseline period (2015-2025)**: High-resolution GRIDMET observed rasters (30m) that get multiplied by change factors
+
+**Key principle**: Change factors are computed from GCM historical to GCM future (not observed historical to GCM future) to keep GCM biases consistent. This ensures we're using the GCM's projection of change, not comparing biased GCM output directly to observations.
 
 ### Step 1: Compute seasonal means at the GCM grid scale
 
 For each GCM, aggregate daily precipitation to seasonal totals (DJF, MAM, JJA, SON), then compute the multi-year mean of each season for:
 
-- **Historical period**: 1990-2019 (GRIDMET at 6 grid points)
-- **Future period**: 2035-2064 (GCM at 6 grid points)
+- **Historical period**: 1990-2019 (GCM modeled historical at 6 grid points)
+- **Future period**: 2035-2064 (GCM future projection at 6 grid points)
+
+Note: GRIDMET observed data (2015-2025) is kept separate as the high-resolution baseline to which change factors will be applied.
 
 ### Step 2: Compute precipitation change factors
 
 For each GCM and each season, compute the change factor at each GCM grid cell:
 
 ```
-CF_precip = GCM_future (2035–2064) / GRIDMET_historical (1990-2019)
+CF_precip = GCM_future (2035–2064) / GCM_historical (1990-2019)
 ```
 
 - Both periods use the same 6 GCM grid points covering the watershed
-- Historical baseline: GRIDMET observed data (1990-2019) extracted at grid points
-- Future projection: GCM data (2035-2064) at the same grid points
+- Historical baseline: GCM modeled historical data (1990-2019)
+- Future projection: GCM future data (2035-2064) from the same model
+- By comparing within the same model, GCM biases cancel out and only the projected change is captured
 - A value of 1.15 means a 15% increase; 0.90 means a 10% decrease
 - If the historical mean < 1e-6 kg/m²/s, set CF = 1.0 to avoid division instability
 
@@ -79,25 +84,26 @@ precip_future_30m (2035-2064) = precip_baseline_30m (2015-2025) × CF_precip
 All scripts are located in `data_processing/climate_models/precip_prediction/` and use the conda `geo` environment.
 
 1. **1_compute_seasonal_means.py**
-   - Downloads GRIDMET observed data (1990-2019) at the 6 GCM grid points
-   - Computes GRIDMET historical baseline seasonal means (shared across all models)
+   - Computes GCM historical seasonal means (1990-2019) for each model
    - Computes GCM future seasonal means (2035-2064) for each model
-   - Handles unit conversion: GRIDMET (mm = kg/m²), GCM (kg/m²/s → kg/m² daily)
-   - Input: GRIDMET NetCDF from northwestknowledge.net, GCM CSVs from `data/precipitation/raw/`
-   - Output: Seasonal means in `data/precipitation/processed/seasonal/` and `data/climate_models/seasonal_means/`
+   - Handles unit conversion: GCM (kg/m²/s → kg/m² daily)
+   - Input: GCM CSVs from `data/climate_models/raw/daily_1990_2015/` and `daily_2015_2065/`
+   - Output: Seasonal means in `data/climate_models/precip_prediction/1_seasonal_means/`
+   - Note: GRIDMET baseline (2015-2025) rasters already exist at 30m resolution
 
 2. **2_compute_change_factors.py**
-   - Computes change factors (CF = GCM_future/GRIDMET_historical) for each GCM and season
-   - Input: Seasonal means from step 1 in `data/climate_models/seasonal_means/`
-   - Output: Change factors in `data/climate_models/change_factors/`
+   - Computes change factors (CF = GCM_future/GCM_historical) for each GCM and season
+   - Keeps GCM biases consistent by comparing within the same model
+   - Input: Seasonal means from step 1 in `data/climate_models/precip_prediction/1_seasonal_means/`
+   - Output: Change factors in `data/climate_models/precip_prediction/2_change_factors/`
 
 3. **3_apply_change_factors.py**
    - Applies change factors to present baseline (2015-2025) using IDW interpolation
    - Interpolates change factors from 6 GCM grid points to 30m resolution
    - Multiplies interpolated change factors by baseline rasters
    - Outputs use EPSG:32618 (WGS84 / UTM zone 18N)
-   - Input: Change factors (GeoJSON) from `data/climate_models/change_factors/` and GRIDMET baseline rasters (2015-2025) from `data/precipitation/processed/seasonal/`
-   - Output: Future projection rasters (2035-2064) in `data/climate_models/future_projections/`
+   - Input: Change factors (GeoJSON) from `data/climate_models/precip_prediction/2_change_factors/` and GRIDMET baseline rasters (2015-2025) from `data/precipitation/processed/seasonal/`
+   - Output: Future projection rasters (2035-2064) in `data/climate_models/precip_prediction/3_future_projections/`
 
 **Utility Scripts:**
 
@@ -110,12 +116,16 @@ All scripts are located in `data_processing/climate_models/precip_prediction/` a
 ccsr-watershed-gis/
 ├── data/
 │   ├── climate_models/
-│   │   ├── daily/                 # Raw GCM daily precipitation (CSV)
-│   │   ├── seasonal_means/        # Step 1 output: seasonal means
-│   │   ├── change_factors/        # Step 2 output: change factors (CSV & GeoJSON)
-│   │   └── future_projections/    # Step 3 output: future precipitation rasters (30m)
+│   │   ├── raw/
+│   │   │   ├── daily_1990_2015/   # GCM historical daily precipitation (CSV)
+│   │   │   └── daily_2015_2065/   # GCM future daily precipitation (CSV)
+│   │   └── precip_prediction/
+│   │       ├── 1_seasonal_means/  # Step 1 output: seasonal means
+│   │       ├── 2_change_factors/  # Step 2 output: change factors (CSV & GeoJSON)
+│   │       └── 3_future_projections/  # Step 3 output: future precipitation rasters (30m)
 │   └── precipitation/
-│       └── raw/                   # GRIDMET historical NetCDF files (4km)
+│       └── processed/
+│           └── seasonal/          # GRIDMET baseline rasters (30m, 2015-2025)
 ├── data_processing/
 │   └── climate_models/
 │       └── precip_prediction/     # This directory: processing scripts
@@ -123,32 +133,24 @@ ccsr-watershed-gis/
 
 ### Results Summary
 
-**Step 1: GRIDMET Historical Baseline (1990-2019)**
-
-Mean seasonal precipitation (kg/m² per season, averaged across 6 grid points):
-
-| Season | DJF | MAM | JJA | SON |
-| ------ | --- | --- | --- | --- |
-| kg/m²  | 226 | 290 | 354 | 314 |
-
-**Step 2 & 3: GCM Change Factors and Projections**
+**Step 2: GCM Change Factors**
 
 Change factors (future/historical) and percentage changes by model and season (averaged across 6 points):
 
 | Model         | Quadrant | DJF         | MAM         | JJA        | SON         |
 | ------------- | -------- | ----------- | ----------- | ---------- | ----------- |
-| ACCESS-ESM1-5 | Hot-Wet  | 1.13 (+13%) | 1.17 (+17%) | 0.94 (−6%) | 1.07 (+7%)  |
-| IPSL-CM6A-LR  | Hot-Dry  | 1.16 (+16%) | 1.04 (+4%)  | 0.92 (−8%) | 0.91 (−9%)  |
-| CMCC-ESM2     | Warm-Wet | 1.29 (+29%) | 1.08 (+8%)  | 1.01 (+1%) | 0.90 (−10%) |
-| CNRM-CM6-1    | Warm-Dry | 1.13 (+13%) | 1.08 (+8%)  | 0.91 (−9%) | 0.86 (−14%) |
-| INM-CM5-0     | Median   | 1.15 (+15%) | 1.05 (+5%)  | 1.04 (+4%) | 0.97 (−3%)  |
+| ACCESS-ESM1-5 | Hot-Wet  | 1.07 (+7%)  | 1.14 (+14%) | 1.00 (0%)  | 1.13 (+13%) |
+| IPSL-CM6A-LR  | Hot-Dry  | 1.10 (+10%) | 1.02 (+2%)  | 0.98 (−2%) | 0.98 (−2%)  |
+| CMCC-ESM2     | Warm-Wet | 1.14 (+14%) | 1.11 (+11%) | 1.03 (+3%) | 0.97 (−3%)  |
+| CNRM-CM6-1    | Warm-Dry | 1.07 (+7%)  | 1.03 (+3%)  | 1.00 (+0%) | 0.99 (−1%)  |
+| INM-CM5-0     | Median   | 1.05 (+5%)  | 1.02 (+2%)  | 1.07 (+7%) | 1.00 (+0%)  |
 
 **Key Patterns:**
 
-- All models show **winter (DJF) increases** (+13% to +29%)
-- Most models show **summer (JJA) decreases** (−9% to −6%), except CMCC-ESM2 (+1%) and INM-CM5-0 (+4%)
-- **Fall (SON)** varies widely: −14% (CNRM-CM6-1) to +7% (ACCESS-ESM1-5)
-- **Spring (MAM)** shows consistent modest increases (+4% to +17%)
+- All models show **winter (DJF) increases** (+5% to +14%)
+- **Summer (JJA)** shows mixed signals: slight decreases for IPSL-CM6A-LR (−2%), increases for ACCESS-ESM1-5 (0%), CMCC-ESM2 (+3%), CNRM-CM6-1 (+0%), and INM-CM5-0 (+7%)
+- **Fall (SON)** varies: −3% (CMCC-ESM2) to +13% (ACCESS-ESM1-5)
+- **Spring (MAM)** shows consistent increases (+2% to +14%)
 
 ### Technical Notes
 

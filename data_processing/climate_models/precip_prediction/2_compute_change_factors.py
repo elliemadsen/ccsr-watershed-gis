@@ -3,15 +3,17 @@
 Step 2: Compute precipitation change factors
 
 This script computes change factors (CF) for each GCM and season by dividing
-GCM future seasonal means by GRIDMET historical seasonal means. The change factors
-represent the multiplicative change in precipitation between periods.
+GCM future seasonal means by GCM historical seasonal means. The change factors
+represent the multiplicative change in precipitation between periods within the
+same model, keeping GCM biases consistent.
 
-Formula: CF_precip = mean_future_season (GCM) / mean_historical_season (GRIDMET)
+Formula: CF_precip = mean_future_season (GCM) / mean_historical_season (GCM)
 
 Key characteristics:
-- Historical baseline: GRIDMET observed data (1990-2019) at 6 GCM grid points
-- Future projections: GCM data (2035-2064) at the same grid points
-- All GCMs use the same GRIDMET historical baseline for consistency
+- Historical baseline: GCM modeled historical data (1990-2019) at 6 grid points
+- Future projections: GCM future data (2035-2064) at the same grid points from the same model
+- Each model uses its own historical baseline (not a shared observed baseline)
+- This preserves model-specific biases and captures only the projected change
 - If historical mean < 1e-6 kg/m²/s, set CF = 1.0 to avoid division errors
 
 Usage:
@@ -31,8 +33,8 @@ import json
 # Configuration
 # Data is in ccsr-watershed-gis/data/climate_models/
 # Scripts are in ccsr-watershed-gis/data_processing/climate_models/
-DATA_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'seasonal_means'
-OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'change_factors'
+DATA_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'precip_prediction' / '1_seasonal_means'
+OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'precip_prediction' / '2_change_factors'
 
 # Models to process
 MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR', 'CMCC-ESM2', 'CNRM-CM6-1', 'INM-CM5-0']
@@ -49,18 +51,14 @@ def load_seasonal_means(model_name, period):
     Load seasonal means for a given model and period.
     
     Args:
-        model_name: Name of the GCM model (or 'gridmet' for historical)
+        model_name: Name of the GCM model
         period: 'historical' or 'future'
         
     Returns:
         DataFrame with seasonal means indexed by season
     """
-    if period == 'historical':
-        # Historical baseline comes from GRIDMET
-        file_path = DATA_DIR / 'seasonal_means_historical_gridmet_pr.csv'
-    else:
-        # Future comes from GCM
-        file_path = DATA_DIR / f'seasonal_means_{period}_{model_name}_pr_ssp370.csv'
+    # Both historical and future come from the same GCM model
+    file_path = DATA_DIR / f'seasonal_means_{period}_{model_name}_pr_ssp370.csv'
     
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
@@ -259,8 +257,8 @@ def save_change_factors_geojson(change_factors, model_name):
             'scenario': 'ssp370',
             'historical_period': '1990-2019',
             'future_period': '2035-2064',
-            'baseline_source': 'GRIDMET',
-            'description': 'Precipitation change factors (GCM future / GRIDMET historical) by season'
+            'baseline_source': model_name,
+            'description': f'Precipitation change factors ({model_name} future / {model_name} historical) by season'
         }
     }
     
@@ -288,9 +286,9 @@ def process_model(model_name):
     print("=" * 70)
     
     # Load seasonal means
-    # Historical baseline comes from GRIDMET (shared across all models)
-    print(f"Loading GRIDMET historical seasonal means...")
-    hist_means = load_seasonal_means('gridmet', 'historical')
+    # Both historical and future come from the same GCM model
+    print(f"Loading {model_name} historical seasonal means...")
+    hist_means = load_seasonal_means(model_name, 'historical')
     print(f"  Loaded {len(hist_means)} seasons, {len(hist_means.columns)} grid cells")
     
     print(f"Loading {model_name} future seasonal means...")
@@ -366,6 +364,8 @@ def main():
     print("Step 2 completed!")
     print("=" * 70)
     print("\nNext step: Apply change factors to observed GRIDMET baseline (Step 3)")
+    print("\nNote: Change factors represent GCM-projected changes (future/historical)")
+    print("      and will be applied to high-resolution GRIDMET baseline data.")
 
 
 if __name__ == '__main__':

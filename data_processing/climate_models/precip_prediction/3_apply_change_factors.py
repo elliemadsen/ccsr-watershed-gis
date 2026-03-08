@@ -47,9 +47,9 @@ except ImportError:
     sys.exit(1)
 
 # Configuration
-CHANGE_FACTORS_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'change_factors'
+CHANGE_FACTORS_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'precip_prediction' / '2_change_factors'
 GRIDMET_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'precipitation' / 'processed' / 'seasonal'
-OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'future_projections'
+OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / 'data' / 'climate_models' / 'precip_prediction' / '3_future_projections'
 
 # Models to process
 MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR', 'CMCC-ESM2', 'CNRM-CM6-1', 'INM-CM5-0']
