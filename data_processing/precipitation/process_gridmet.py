@@ -224,8 +224,8 @@ def reproject_to_utm(ds, output_path, target_resolution=30, watershed_path=None)
     
     # Source CRS (WGS84)
     src_crs = 'EPSG:4326'
-    # Target CRS (UTM Zone 18N)
-    dst_crs = 'EPSG:26918'
+    # Target CRS (UTM Zone 18N - WGS84)
+    dst_crs = 'EPSG:32618'
     
     # Get coordinates
     lons = ds.lon.values

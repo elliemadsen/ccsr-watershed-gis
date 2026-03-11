@@ -1,0 +1,152 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.125,
+          42.125
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.125, -75.125)",
+        "lat": 42.125,
+        "lon": -75.125,
+        "cf_DJF": 1.006068162603883,
+        "pct_change_DJF": 0.6068162603882987,
+        "cf_JJA": 1.003779205353193,
+        "pct_change_JJA": 0.37792053531930936,
+        "cf_MAM": 1.0063476731902836,
+        "pct_change_MAM": 0.634767319028362,
+        "cf_SON": 1.0058772425845062,
+        "pct_change_SON": 0.587724258450617
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.875,
+          42.125
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.125, -74.875)",
+        "lat": 42.125,
+        "lon": -74.875,
+        "cf_DJF": 1.0060335682531756,
+        "pct_change_DJF": 0.6033568253175581,
+        "cf_JJA": 1.0038120091420062,
+        "pct_change_JJA": 0.38120091420061897,
+        "cf_MAM": 1.0062672032051039,
+        "pct_change_MAM": 0.6267203205103877,
+        "cf_SON": 1.0058513000530849,
+        "pct_change_SON": 0.5851300053084874
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.625,
+          42.125
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.125, -74.625)",
+        "lat": 42.125,
+        "lon": -74.625,
+        "cf_DJF": 1.0061816563464032,
+        "pct_change_DJF": 0.6181656346403219,
+        "cf_JJA": 1.0040163031539424,
+        "pct_change_JJA": 0.4016303153942413,
+        "cf_MAM": 1.0062956738930275,
+        "pct_change_MAM": 0.6295673893027542,
+        "cf_SON": 1.0059350006124474,
+        "pct_change_SON": 0.593500061244745
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.125,
+          42.375
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.375, -75.125)",
+        "lat": 42.375,
+        "lon": -75.125,
+        "cf_DJF": 1.0063375546226603,
+        "pct_change_DJF": 0.633755462266028,
+        "cf_JJA": 1.0040628325459129,
+        "pct_change_JJA": 0.40628325459128867,
+        "cf_MAM": 1.0066384559097974,
+        "pct_change_MAM": 0.6638455909797392,
+        "cf_SON": 1.006126799902665,
+        "pct_change_SON": 0.612679990266507
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.875,
+          42.375
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.375, -74.875)",
+        "lat": 42.375,
+        "lon": -74.875,
+        "cf_DJF": 1.006299382546307,
+        "pct_change_DJF": 0.6299382546306909,
+        "cf_JJA": 1.0040686628674704,
+        "pct_change_JJA": 0.40686628674704295,
+        "cf_MAM": 1.0065573307853033,
+        "pct_change_MAM": 0.6557330785303295,
+        "cf_SON": 1.0060954154790953,
+        "pct_change_SON": 0.6095415479095312
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.625,
+          42.375
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.375, -74.625)",
+        "lat": 42.375,
+        "lon": -74.625,
+        "cf_DJF": 1.0064026097308914,
+        "pct_change_DJF": 0.6402609730891351,
+        "cf_JJA": 1.0041995260268428,
+        "pct_change_JJA": 0.4199526026842815,
+        "cf_MAM": 1.0065488629242905,
+        "pct_change_MAM": 0.6548862924290466,
+        "cf_SON": 1.006142811677391,
+        "pct_change_SON": 0.6142811677390947
+      }
+    }
+  ],
+  "metadata": {
+    "model": "CMCC-ESM2",
+    "variable": "tasmax",
+    "scenario": "ssp370",
+    "historical_period": "1990-2019",
+    "future_period": "2035-2064",
+    "baseline_source": "CMCC-ESM2",
+    "description": "Temperature change factors (CMCC-ESM2 future / CMCC-ESM2 historical) by season for tasmax"
+  }
+}

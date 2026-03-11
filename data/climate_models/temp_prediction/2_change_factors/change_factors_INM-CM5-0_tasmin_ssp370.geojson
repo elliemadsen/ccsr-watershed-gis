@@ -1,0 +1,152 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.125,
+          42.125
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.125, -75.125)",
+        "lat": 42.125,
+        "lon": -75.125,
+        "cf_DJF": 1.0090748045906148,
+        "pct_change_DJF": 0.9074804590614827,
+        "cf_JJA": 1.005801848325471,
+        "pct_change_JJA": 0.5801848325470926,
+        "cf_MAM": 1.0068213437972964,
+        "pct_change_MAM": 0.6821343797296375,
+        "cf_SON": 1.0060802263718978,
+        "pct_change_SON": 0.6080226371897757
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.875,
+          42.125
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.125, -74.875)",
+        "lat": 42.125,
+        "lon": -74.875,
+        "cf_DJF": 1.009066950615958,
+        "pct_change_DJF": 0.9066950615957969,
+        "cf_JJA": 1.0058907699899553,
+        "pct_change_JJA": 0.5890769989955302,
+        "cf_MAM": 1.0067740461517418,
+        "pct_change_MAM": 0.6774046151741819,
+        "cf_SON": 1.0060931413531475,
+        "pct_change_SON": 0.6093141353147535
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.625,
+          42.125
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.125, -74.625)",
+        "lat": 42.125,
+        "lon": -74.625,
+        "cf_DJF": 1.0090703997645198,
+        "pct_change_DJF": 0.9070399764519843,
+        "cf_JJA": 1.0059863677295637,
+        "pct_change_JJA": 0.5986367729563735,
+        "cf_MAM": 1.006734030214531,
+        "pct_change_MAM": 0.6734030214530895,
+        "cf_SON": 1.0061135946033768,
+        "pct_change_SON": 0.6113594603376793
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.125,
+          42.375
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.375, -75.125)",
+        "lat": 42.375,
+        "lon": -75.125,
+        "cf_DJF": 1.00953701101349,
+        "pct_change_DJF": 0.9537011013490027,
+        "cf_JJA": 1.0057392474502673,
+        "pct_change_JJA": 0.5739247450267326,
+        "cf_MAM": 1.0069202471299572,
+        "pct_change_MAM": 0.6920247129957202,
+        "cf_SON": 1.0062878119760914,
+        "pct_change_SON": 0.6287811976091406
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.875,
+          42.375
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.375, -74.875)",
+        "lat": 42.375,
+        "lon": -74.875,
+        "cf_DJF": 1.0095579204767169,
+        "pct_change_DJF": 0.9557920476716886,
+        "cf_JJA": 1.0058149480377483,
+        "pct_change_JJA": 0.5814948037748291,
+        "cf_MAM": 1.006861597949354,
+        "pct_change_MAM": 0.6861597949354037,
+        "cf_SON": 1.0063084726533802,
+        "pct_change_SON": 0.6308472653380193
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -74.625,
+          42.375
+        ]
+      },
+      "properties": {
+        "grid_cell": "(42.375, -74.625)",
+        "lat": 42.375,
+        "lon": -74.625,
+        "cf_DJF": 1.0095816353293072,
+        "pct_change_DJF": 0.9581635329307225,
+        "cf_JJA": 1.0058918229318887,
+        "pct_change_JJA": 0.5891822931888724,
+        "cf_MAM": 1.0068037477945544,
+        "pct_change_MAM": 0.6803747794554393,
+        "cf_SON": 1.0063311478943495,
+        "pct_change_SON": 0.633114789434952
+      }
+    }
+  ],
+  "metadata": {
+    "model": "INM-CM5-0",
+    "variable": "tasmin",
+    "scenario": "ssp370",
+    "historical_period": "1990-2019",
+    "future_period": "2035-2064",
+    "baseline_source": "INM-CM5-0",
+    "description": "Temperature change factors (INM-CM5-0 future / INM-CM5-0 historical) by season for tasmin"
+  }
+}
