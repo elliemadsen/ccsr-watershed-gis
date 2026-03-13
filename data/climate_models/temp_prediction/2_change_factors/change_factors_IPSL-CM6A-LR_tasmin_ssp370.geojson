@@ -14,14 +14,10 @@
         "grid_cell": "(42.125, -75.125)",
         "lat": 42.125,
         "lon": -75.125,
-        "cf_DJF": 1.0050645975628776,
-        "pct_change_DJF": 0.5064597562877582,
-        "cf_JJA": 1.0057736290254888,
-        "pct_change_JJA": 0.5773629025488836,
-        "cf_MAM": 1.0064973484616286,
-        "pct_change_MAM": 0.6497348461628638,
-        "cf_SON": 1.0084142854833447,
-        "pct_change_SON": 0.8414285483344663
+        "delta_T_DJF_K": 1.343173558459796,
+        "delta_T_JJA_K": 1.657714630434782,
+        "delta_T_MAM_K": 1.7849442137680853,
+        "delta_T_SON_K": 2.3371896080585657
       }
     },
     {
@@ -37,14 +33,10 @@
         "grid_cell": "(42.125, -74.875)",
         "lat": 42.125,
         "lon": -74.875,
-        "cf_DJF": 1.0050960691149893,
-        "pct_change_DJF": 0.5096069114989277,
-        "cf_JJA": 1.0058124085798201,
-        "pct_change_JJA": 0.5812408579820127,
-        "cf_MAM": 1.0065243058579676,
-        "pct_change_MAM": 0.6524305857967594,
-        "cf_SON": 1.008525028568634,
-        "pct_change_SON": 0.8525028568634019
+        "delta_T_DJF_K": 1.3490011335943564,
+        "delta_T_JJA_K": 1.6660113695652399,
+        "delta_T_MAM_K": 1.78900573550726,
+        "delta_T_SON_K": 2.3639745238095315
       }
     },
     {
@@ -60,14 +52,10 @@
         "grid_cell": "(42.125, -74.625)",
         "lat": 42.125,
         "lon": -74.625,
-        "cf_DJF": 1.0051669193682977,
-        "pct_change_DJF": 0.5166919368297718,
-        "cf_JJA": 1.0059286038004174,
-        "pct_change_JJA": 0.5928603800417376,
-        "cf_MAM": 1.0065940325231963,
-        "pct_change_MAM": 0.6594032523196347,
-        "cf_SON": 1.0086675190364165,
-        "pct_change_SON": 0.8667519036416493
+        "delta_T_DJF_K": 1.3634536152677583,
+        "delta_T_JJA_K": 1.6946159130434921,
+        "delta_T_MAM_K": 1.80273336956526,
+        "delta_T_SON_K": 2.3965613003662156
       }
     },
     {
@@ -83,14 +71,10 @@
         "grid_cell": "(42.375, -75.125)",
         "lat": 42.375,
         "lon": -75.125,
-        "cf_DJF": 1.0053709806456443,
-        "pct_change_DJF": 0.5370980645644341,
-        "cf_JJA": 1.0058995644784805,
-        "pct_change_JJA": 0.5899564478480501,
-        "cf_MAM": 1.0066760671206623,
-        "pct_change_MAM": 0.6676067120662266,
-        "cf_SON": 1.008464864269943,
-        "pct_change_SON": 0.8464864269942973
+        "delta_T_DJF_K": 1.423485934647033,
+        "delta_T_JJA_K": 1.6939965688405891,
+        "delta_T_MAM_K": 1.8336628514493327,
+        "delta_T_SON_K": 2.351408641025614
       }
     },
     {
@@ -106,14 +90,10 @@
         "grid_cell": "(42.375, -74.875)",
         "lat": 42.375,
         "lon": -74.875,
-        "cf_DJF": 1.0054088579919345,
-        "pct_change_DJF": 0.5408857991934468,
-        "cf_JJA": 1.0059089757274224,
-        "pct_change_JJA": 0.5908975727422439,
-        "cf_MAM": 1.006699619561302,
-        "pct_change_MAM": 0.669961956130205,
-        "cf_SON": 1.0085722043088932,
-        "pct_change_SON": 0.8572204308893161
+        "delta_T_DJF_K": 1.4303207566233596,
+        "delta_T_JJA_K": 1.6933479094203108,
+        "delta_T_MAM_K": 1.8361239384057626,
+        "delta_T_SON_K": 2.37634244322345
       }
     },
     {
@@ -129,14 +109,10 @@
         "grid_cell": "(42.375, -74.625)",
         "lat": 42.375,
         "lon": -74.625,
-        "cf_DJF": 1.0054639343765057,
-        "pct_change_DJF": 0.5463934376505719,
-        "cf_JJA": 1.005988637805381,
-        "pct_change_JJA": 0.5988637805381058,
-        "cf_MAM": 1.0067351671744924,
-        "pct_change_MAM": 0.6735167174492407,
-        "cf_SON": 1.0087009344174371,
-        "pct_change_SON": 0.8700934417437134
+        "delta_T_DJF_K": 1.4411747262330437,
+        "delta_T_JJA_K": 1.712524036231855,
+        "delta_T_MAM_K": 1.8415296050724805,
+        "delta_T_SON_K": 2.4063902893772138
       }
     }
   ],
@@ -147,6 +123,6 @@
     "historical_period": "1990-2019",
     "future_period": "2035-2064",
     "baseline_source": "IPSL-CM6A-LR",
-    "description": "Temperature change factors (IPSL-CM6A-LR future / IPSL-CM6A-LR historical) by season for tasmin"
+    "description": "Additive temperature change factors (\u0394T = IPSL-CM6A-LR future - IPSL-CM6A-LR historical) by season for tasmin in Kelvin"
   }
 }

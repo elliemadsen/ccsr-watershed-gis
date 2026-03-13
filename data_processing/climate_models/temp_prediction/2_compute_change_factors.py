@@ -7,14 +7,14 @@ GCM future seasonal means by GCM historical seasonal means. The change factors
 represent the multiplicative change in temperature between periods within the
 same model, keeping GCM biases consistent.
 
-Formula: CF_temp = mean_future_season (GCM) / mean_historical_season (GCM)
+Formula: ΔT = mean_future_season (GCM) - mean_historical_season (GCM)
 
 Key characteristics:
 - Historical baseline: GCM modeled historical data (1990-2019) at 6 grid points
 - Future projections: GCM future data (2035-2064) at the same grid points from the same model
 - Each model uses its own historical baseline (not a shared observed baseline)
 - This preserves model-specific biases and captures only the projected change
-- Temperature is in Kelvin (K), so ratios still work for multiplicative change factors
+- Temperature uses ADDITIVE change factors (ΔT in Kelvin) unlike precipitation (multiplicative)
 
 Usage:
     python 2_compute_change_factors.py
@@ -41,9 +41,6 @@ MODELS = ['ACCESS-ESM1-5', 'IPSL-CM6A-LR', 'CMCC-ESM2', 'CNRM-CM6-1', 'INM-CM5-0
 
 # Temperature variables to process
 VARIABLES = ['tasmin', 'tasmax']
-
-# Near-zero threshold (K) - very low for temperature since temps are ~270-300K
-NEAR_ZERO_THRESHOLD = 1.0  # K
 
 
 def load_seasonal_means(model_name, variable, period):
@@ -74,17 +71,21 @@ def load_seasonal_means(model_name, variable, period):
 
 def compute_change_factors(hist_means, fut_means, model_name):
     """
-    Compute change factors for all grid cells and seasons.
+    Compute additive temperature change factors for all grid cells and seasons.
+    
+    For temperature, we use ADDITIVE change factors (ΔT = future - historical)
+    rather than multiplicative ratios, because temperature change is additive
+    and reporting in Kelvin/Celsius is more meaningful than percentages.
     
     Args:
-        hist_means: Historical seasonal means DataFrame
-        fut_means: Future seasonal means DataFrame
+        hist_means: Historical seasonal means DataFrame (K)
+        fut_means: Future seasonal means DataFrame (K)
         model_name: Name of the GCM model
         
     Returns:
-        DataFrame with change factors indexed by season
+        DataFrame with additive change factors (ΔT in K) indexed by season
     """
-    print(f"\nComputing change factors for {model_name}...")
+    print(f"\nComputing additive temperature change factors for {model_name}...")
     
     # Ensure both DataFrames have the same structure
     assert list(hist_means.columns) == list(fut_means.columns), \
@@ -99,65 +100,52 @@ def compute_change_factors(hist_means, fut_means, model_name):
         dtype=float
     )
     
-    # Compute change factors for each cell and season
+    # Compute additive change factors (ΔT) for each cell and season
     for season in hist_means.index:
         for grid_cell in hist_means.columns:
             hist_value = hist_means.loc[season, grid_cell]
             fut_value = fut_means.loc[season, grid_cell]
             
-            # Check for near-zero historical values (shouldn't happen for temperature in K)
-            if hist_value < NEAR_ZERO_THRESHOLD:
-                cf = 1.0
-                print(f"  WARNING: Very low historical temperature for {season}, {grid_cell}: "
-                      f"{hist_value:.2f} K. Setting CF = 1.0")
-            else:
-                cf = fut_value / hist_value
+            # Additive change: ΔT = future - historical
+            delta_t = fut_value - hist_value
             
-            change_factors.loc[season, grid_cell] = cf
+            change_factors.loc[season, grid_cell] = delta_t
     
     return change_factors
 
 
 def print_change_factor_summary(change_factors, model_name):
     """
-    Print summary statistics for change factors.
+    Print summary statistics for additive temperature change factors.
     
     Args:
-        change_factors: DataFrame with change factors
+        change_factors: DataFrame with additive change factors (ΔT in K)
         model_name: Name of the GCM model
     """
-    print(f"\nChange Factor Summary for {model_name}:")
+    print(f"\nTemperature Change Summary for {model_name}:")
     print("-" * 70)
     
     summary_data = []
     
     for season in ['DJF', 'MAM', 'JJA', 'SON']:
         if season in change_factors.index:
-            season_cfs = change_factors.loc[season].values.astype(float)
+            season_deltas = change_factors.loc[season].values.astype(float)
             
-            mean_cf = season_cfs.mean()
-            min_cf = season_cfs.min()
-            max_cf = season_cfs.max()
-            std_cf = season_cfs.std()
+            mean_delta = season_deltas.mean()
+            min_delta = season_deltas.min()
+            max_delta = season_deltas.max()
+            std_delta = season_deltas.std()
             
-            # Convert to percentage change
-            mean_pct = (mean_cf - 1.0) * 100
-            min_pct = (min_cf - 1.0) * 100
-            max_pct = (max_cf - 1.0) * 100
-            
-            print(f"{season}: CF range = [{min_cf:.4f}, {max_cf:.4f}], "
-                  f"mean = {mean_cf:.4f} ({mean_pct:+.2f}%), std = {std_cf:.4f}")
+            print(f"{season}: ΔT range = [{min_delta:+.2f}, {max_delta:+.2f}] K, "
+                  f"mean = {mean_delta:+.2f} K, std = {std_delta:.2f} K")
             
             summary_data.append({
                 'model': model_name,
                 'season': season,
-                'mean_cf': mean_cf,
-                'min_cf': min_cf,
-                'max_cf': max_cf,
-                'std_cf': std_cf,
-                'mean_pct_change': mean_pct,
-                'min_pct_change': min_pct,
-                'max_pct_change': max_pct
+                'mean_delta_K': mean_delta,
+                'min_delta_K': min_delta,
+                'max_delta_K': max_delta,
+                'std_delta_K': std_delta
             })
     
     return summary_data
@@ -234,11 +222,10 @@ def save_change_factors_geojson(change_factors, model_name, variable):
             'lon': lon
         }
         
-        # Add change factors for each season
+        # Add change factors for each season (ΔT in K)
         for season in change_factors.index:
-            cf = float(change_factors.loc[season, grid_cell])
-            properties[f'cf_{season}'] = cf
-            properties[f'pct_change_{season}'] = (cf - 1.0) * 100
+            delta_t = float(change_factors.loc[season, grid_cell])
+            properties[f'delta_T_{season}_K'] = delta_t
         
         feature = {
             'type': 'Feature',
@@ -261,7 +248,7 @@ def save_change_factors_geojson(change_factors, model_name, variable):
             'historical_period': '1990-2019',
             'future_period': '2035-2064',
             'baseline_source': model_name,
-            'description': f'Temperature change factors ({model_name} future / {model_name} historical) by season for {variable}'
+            'description': f'Additive temperature change factors (ΔT = {model_name} future - {model_name} historical) by season for {variable} in Kelvin'
         }
     }
     
@@ -335,8 +322,8 @@ def save_summary(all_summary_data):
         if len(season_data) > 0:
             print(f"\n{season}:")
             for _, row in season_data.iterrows():
-                print(f"  {row['model']:20s}: {row['mean_pct_change']:+6.2f}% "
-                      f"(range: {row['min_pct_change']:+6.2f}% to {row['max_pct_change']:+6.2f}%)")
+                print(f"  {row['model']:20s}: {row['mean_delta_K']:+5.2f} K "
+                      f"(range: {row['min_delta_K']:+5.2f} to {row['max_delta_K']:+5.2f} K)")
 
 
 def main():
@@ -346,7 +333,7 @@ def main():
     print("=" * 70)
     print(f"\nModels to process: {', '.join(MODELS)}")
     print(f"Variables to process: {', '.join(VARIABLES)}")
-    print(f"Near-zero threshold: {NEAR_ZERO_THRESHOLD} K")
+    print(f"\nUsing ADDITIVE change factors: ΔT = future - historical (in Kelvin)")
     
     all_summary_data = []
     
@@ -377,8 +364,9 @@ def main():
     print("Step 2 completed!")
     print("=" * 70)
     print("\nNext step: Apply change factors to observed GRIDMET baseline (Step 3)")
-    print("\nNote: Change factors represent GCM-projected changes (future/historical)")
-    print("      and will be applied to high-resolution GRIDMET baseline data.")
+    print("\nNote: Change factors are ADDITIVE (ΔT in K) representing absolute temperature")
+    print("      change projected by each GCM (future - historical). They will be added")
+    print("      to high-resolution GRIDMET baseline data.")
 
 
 if __name__ == '__main__':

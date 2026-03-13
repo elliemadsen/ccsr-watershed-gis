@@ -9,14 +9,17 @@ temperature rasters (2015-2025 @ 30m) to create future climate projections
 The process:
 1. Load change factors for each model and season (point data at 6 GCM grid points)
 2. Interpolate change factors to 30m resolution using Inverse Distance Weighting (IDW)
-3. Multiply the interpolated change factors by the present GRIDMET baseline rasters (2015-2025)
+3. Add the interpolated change factors to the present GRIDMET baseline rasters (2015-2025)
 
 Interpolation method: IDW with power=2 (inverse square distance)
 - Creates smooth gradients between GCM grid points
 - More physically realistic than nearest neighbor (Voronoi)
 - Each pixel weighted by all GCM points based on distance
 
-Formula: temp_future_30m (2035-2064) = temp_baseline_30m (2015-2025) × CF_temp
+Formula: temp_future_30m (2035-2064) = temp_baseline_30m (2015-2025) + ΔT
+
+Note: Temperature uses ADDITIVE change factors (ΔT in Kelvin), unlike precipitation
+      which uses multiplicative change factors (ratios).
 
 Usage:
     python 3_apply_change_factors.py
@@ -96,10 +99,11 @@ def load_change_factors_geojson(model_name, variable):
         
         for feature in data['features']:
             lon, lat = feature['geometry']['coordinates']
-            cf = feature['properties'][f'cf_{season_upper}']
+            # Updated to use delta_T instead of cf
+            delta_t = feature['properties'][f'delta_T_{season_upper}_K']
             
             coords.append((lon, lat))
-            values.append(cf)
+            values.append(delta_t)
         
         coords = np.array(coords)
         values = np.array(values)
@@ -111,7 +115,7 @@ def load_change_factors_geojson(model_name, variable):
         }
         
         print(f"  {season_upper}: {len(coords)} grid points, "
-              f"CF range [{values.min():.4f}, {values.max():.4f}]")
+              f"ΔT range [{values.min():+.2f}, {values.max():+.2f}] K")
     
     return change_factors
 
@@ -235,22 +239,25 @@ def interpolate_change_factors_idw(cf_coords, cf_values, target_shape, target_tr
 
 def apply_change_factors(baseline_data, change_factors, nodata_value):
     """
-    Apply change factors to baseline data.
+    Apply additive temperature change factors to baseline data.
+    
+    For temperature, change factors are ADDITIVE (ΔT in Kelvin),
+    so we ADD them to the baseline rather than multiplying.
     
     Args:
-        baseline_data: Baseline raster data
-        change_factors: Interpolated change factors
+        baseline_data: Baseline raster data (K)
+        change_factors: Interpolated additive change factors (ΔT in K)
         nodata_value: NoData value to preserve
         
     Returns:
-        Future projection data
+        Future projection data (K)
     """
     # Create output array
     future_data = baseline_data.copy()
     
-    # Apply change factors only to valid data
+    # Apply additive change factors only to valid data
     valid_mask = baseline_data != nodata_value
-    future_data[valid_mask] = baseline_data[valid_mask] * change_factors[valid_mask]
+    future_data[valid_mask] = baseline_data[valid_mask] + change_factors[valid_mask]
     
     return future_data
 
@@ -311,7 +318,7 @@ def process_model_season(model_name, variable, season, change_factors_dict):
     )
     
     # Apply change factors
-    print("Applying change factors to baseline...")
+    print("Applying additive change factors to baseline...")
     future_data = apply_change_factors(baseline_data, interpolated_cf, nodata)
     
     # Save future projection
