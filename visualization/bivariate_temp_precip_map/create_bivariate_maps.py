@@ -6,11 +6,16 @@ Uses a 3x3 bivariate color scheme where:
 - X-axis (columns): Temperature (low to high)
 - Y-axis (rows): Precipitation (low to high)
 
-Creates two maps:
+Creates maps for:
 1. GRIDMET baseline (2015-2025)
-2. INM-CM5-0 future projection (2035-2064)
+2. All 5 GCM future projections (2035-2064):
+   - ACCESS-ESM1-5
+   - IPSL-CM6A-LR
+   - CMCC-ESM2
+   - CNRM-CM6-1
+   - INM-CM5-0
 
-Both use the same legend for direct comparison.
+All use the same legend for direct comparison.
 """
 
 import numpy as np
@@ -28,8 +33,14 @@ DATA_DIR = Path(__file__).parent.parent.parent / 'data'
 GRIDMET_TEMP = DATA_DIR / 'temp' / 'processed' / 'seasonal' / 'temp_max_final_30m_2015-2025_jja.tif'
 GRIDMET_PRECIP = DATA_DIR / 'precipitation' / 'processed' / 'seasonal' / 'precip_final_30m_2015-2025_jja.tif'
 
-GCM_TEMP = DATA_DIR / 'climate_models' / 'temp_prediction' / '3_future_projections' / 'temp_max_future_INM-CM5-0_2035-2064_jja_30m.tif'
-GCM_PRECIP = DATA_DIR / 'climate_models' / 'precip_prediction' / '3_future_projections' / 'precip_future_INM-CM5-0_2035-2064_jja_30m.tif'
+# GCM models to process
+GCM_MODELS = [
+    'ACCESS-ESM1-5',
+    'IPSL-CM6A-LR',
+    'CMCC-ESM2',
+    'CNRM-CM6-1',
+    'INM-CM5-0'
+]
 
 # Output
 OUTPUT_DIR = Path(__file__).parent
@@ -329,8 +340,9 @@ def main():
     # Create output directory
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
-    # First pass: load data to determine common breaks
+    # First pass: load all data to determine common breaks across ALL models
     print("\n--- Loading data to determine common class breaks ---")
+    print(f"Processing {len(GCM_MODELS)} climate models...")
     
     with rasterio.open(GRIDMET_TEMP) as src:
         baseline_temp_data = src.read(1)
@@ -340,25 +352,43 @@ def main():
         baseline_precip_data = src.read(1)
         precip_nodata = src.nodata
     
-    with rasterio.open(GCM_TEMP) as src:
-        future_temp_data = src.read(1)
-    
-    with rasterio.open(GCM_PRECIP) as src:
-        future_precip_data = src.read(1)
-    
-    # Get valid data
+    # Get valid baseline data
     baseline_valid = (baseline_temp_data != temp_nodata) & (baseline_precip_data != precip_nodata)
-    future_valid = (future_temp_data != temp_nodata) & (future_precip_data != precip_nodata)
-    
     baseline_temp_c = (baseline_temp_data[baseline_valid] - 273.15)
     baseline_precip = baseline_precip_data[baseline_valid]
-    future_temp_c = (future_temp_data[future_valid] - 273.15)
-    future_precip = future_precip_data[future_valid]
+    
+    # Collect all future model data
+    all_future_temp = [baseline_temp_c]
+    all_future_precip = [baseline_precip]
+    
+    for model in GCM_MODELS:
+        temp_path = DATA_DIR / 'climate_models' / 'temp_prediction' / '3_future_projections' / f'temp_max_future_{model}_2035-2064_jja_30m.tif'
+        precip_path = DATA_DIR / 'climate_models' / 'precip_prediction' / '3_future_projections' / f'precip_future_{model}_2035-2064_jja_30m.tif'
+        
+        if not temp_path.exists() or not precip_path.exists():
+            print(f"  Warning: Missing data for {model}, skipping from break calculation")
+            continue
+        
+        with rasterio.open(temp_path) as src:
+            temp_data = src.read(1)
+        with rasterio.open(precip_path) as src:
+            precip_data = src.read(1)
+        
+        valid = (temp_data != temp_nodata) & (precip_data != precip_nodata)
+        all_future_temp.append(temp_data[valid] - 273.15)
+        all_future_precip.append(precip_data[valid])
+    
+    # Combine all data for break calculation
+    combined_temp = np.concatenate(all_future_temp)
+    combined_precip = np.concatenate(all_future_precip)
     
     # Determine common breaks
-    temp_breaks, precip_breaks = determine_common_breaks(
-        baseline_temp_c, baseline_precip, future_temp_c, future_precip
-    )
+    temp_breaks = np.percentile(combined_temp, [0, 33.33, 66.67, 100])
+    precip_breaks = np.percentile(combined_precip, [0, 33.33, 66.67, 100])
+    
+    print("\nCommon class breaks (quantile-based across all models):")
+    print(f"  Temperature: {temp_breaks}")
+    print(f"  Precipitation: {precip_breaks}")
     
     # Create legend
     print("\n--- Creating bivariate legend ---")
@@ -379,19 +409,28 @@ def main():
         gridsize=80  # Number of hexagons
     )
     
-    # Process future
-    print("\n--- Processing INM-CM5-0 Future ---")
-    future_bivariate, extent, future_mask, future_temp_c, future_precip = load_and_classify_data(
-        GCM_TEMP, GCM_PRECIP, temp_breaks, precip_breaks,
-        'INM-CM5-0 Future (2035-2064)'
-    )
-    
-    create_bivariate_map(
-        future_temp_c, future_precip, future_mask, temp_breaks, precip_breaks, extent,
-        'INM-CM5-0 Future Projection (2035-2064)\n\nSummer (JJA)',
-        OUTPUT_DIR / 'bivariate_map_future_INM-CM5-0_jja.png',
-        gridsize=80  # Number of hexagons
-    )
+    # Process all future models
+    for model in GCM_MODELS:
+        print(f"\n--- Processing {model} Future ---")
+        
+        temp_path = DATA_DIR / 'climate_models' / 'temp_prediction' / '3_future_projections' / f'temp_max_future_{model}_2035-2064_jja_30m.tif'
+        precip_path = DATA_DIR / 'climate_models' / 'precip_prediction' / '3_future_projections' / f'precip_future_{model}_2035-2064_jja_30m.tif'
+        
+        if not temp_path.exists() or not precip_path.exists():
+            print(f"  Warning: Missing data files for {model}, skipping...")
+            continue
+        
+        future_bivariate, extent, future_mask, future_temp_c, future_precip = load_and_classify_data(
+            temp_path, precip_path, temp_breaks, precip_breaks,
+            f'{model} Future (2035-2064)'
+        )
+        
+        create_bivariate_map(
+            future_temp_c, future_precip, future_mask, temp_breaks, precip_breaks, extent,
+            f'{model} Future Projection (2035-2064)\n\nSummer (JJA)',
+            OUTPUT_DIR / f'bivariate_map_future_{model}_jja.png',
+            gridsize=80  # Number of hexagons
+        )
     
     print("\n" + "=" * 70)
     print("Bivariate maps complete!")
@@ -400,7 +439,8 @@ def main():
     print("\nFiles created:")
     print("  - bivariate_legend.png")
     print("  - bivariate_map_baseline_jja.png")
-    print("  - bivariate_map_future_INM-CM5-0_jja.png")
+    for model in GCM_MODELS:
+        print(f"  - bivariate_map_future_{model}_jja.png")
 
 
 if __name__ == '__main__':
