@@ -1,14 +1,12 @@
 # ccsr-watershed-gis
 
-3D terrain visualization of Catskills watershed with multiple data layers including climate model projections.
+Interactive 3D terrain visualization of Cannonsville watershed with multiple data layers
 
 ## Browser Visualization (Three.js)
 
-Interactive 3D terrain viewer that runs entirely in the browser with real-time controls for data layers, vertical exaggeration, resolution sampling, and climate data visualization.
-
 ### Setup
 
-1. Generate data files from the `web_data/` directory:
+Generate data files from the `web_data/` directory:
 
 ```bash
 conda run -n geo python prepare_dem.py
@@ -18,37 +16,16 @@ conda run -n geo python prepare_runoff.py
 conda run -n geo python prepare_climate_models.py
 ```
 
-2. Start a local web server from the root directory:
-
-```bash
-python3 -m http.server 8080
-# Open http://localhost:8080 in web browser
-```
-
 ### Features
 
 - **Data Layers**: Switch between Elevation, Cropland Data Layer (CDL), Land Cover (NLCD), Runoff Coefficient, or Climate Data (Precipitation, Temperature, Humidity)
 - **Category Filtering**: Toggle individual land cover and cropland categories on/off with interactive legends
-  - Select All / Deselect All buttons for quick selection
-  - Click individual categories to show/hide specific land uses
-  - Visual feedback with grayed-out unselected categories
-- **Climate Model Visualization**:
-  - ACCESS-ESM1-5 and IPSL-CM6A-LR models with SSP3-7.0 scenario
-  - Seasonal time series data (612 timesteps from 2024-2176)
-  - Real-time interpolation or grid cell visualization modes
-  - Global or per-timestamp color normalization
-  - Interactive timeline slider
-  - Grid boundary overlays showing 2×3 climate data cells
-- **Vertical Exaggeration**: 1x to 5x real-time adjustment
+- **Climate Model Visualization**: Seasonal time series with various interpolation and normalization inputs
+- **Vertical Exaggeration**: 1x to 5x
 - **Resolution Sampling**: 1x (full 2556×1688) to 8x downsampling for performance
 - **Wireframe Mode**: Toggle mesh display
-- **Interactive Legends**:
-  - Gradient legends for elevation, runoff coefficient, and climate data with min/max values and units
-  - Categorical legends for NLCD and CDL with individual category toggles
-  - Dynamic updates based on selected data layer and climate model
-  - Only displays classes actually present in the data
-- **Camera Controls**:
-  - Orbit, zoom, and pan enabled by default
+- **Legends**: dynamic gradient legends for continuous data; categorical legends with filtering for discrete data
+- **Camera Controls**: Orbit, zoom, pan
 
 ### Data Files
 
@@ -70,15 +47,11 @@ All data automatically reprojected to match DEM coordinate system (EPSG:26918).
 
 ### Data Sources
 
-- **DEM**: `DEM/tif/DEM_UTM.tif` (EPSG:26918, 2556×1688 pixels)
-- **NLCD**: `NLCD/nlcd2016_ny.tif` (2016 land cover, 15 classes)
-- **CDL**: `CDL/CDL_2020_36.tif` (2020 cropland data, 41 classes)
-- **Runoff**: `runoff_coefficient/runoff_coefficient.tif` (0.000-0.601 range)
-- **Climate Models**: `climate_models/` directory containing downscaled ACCESS-ESM1-5 and IPSL-CM6A-LR projections
-  - Variables: precipitation (pr), max/min temperature (tasmax/tasmin), humidity (hurs), solar radiation (rlds/rsds), wind (sfcWind)
-  - Scenario: SSP3-7.0 (high emissions pathway)
-  - Temporal: Daily data aggregated to seasonal (Mar/Jun/Sep/Dec)
-  - Spatial: 6-point 2×3 grid covering Catskills watershed
+- **DEM**: `data/DEM/tif/DEM_UTM.tif`
+- **NLCD**: `data/NLCD/nlcd2016_ny.tif`
+- **CDL**: `data/CDL/CDL_2020_36.tif`
+- **Runoff**: `data/runoff_coefficient/runoff_coefficient.tif`
+- **Climate Models**: `climate_models/`
 
 ### Known Bugs
 

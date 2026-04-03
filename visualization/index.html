@@ -44,7 +44,8 @@
         min-width: 250px;
       }
 
-      #climate-panel {
+      #climate-panel,
+      #bivariate-panel {
         background: rgba(255, 255, 255, 0.95);
         padding: 15px;
         border-radius: 8px;
@@ -53,7 +54,8 @@
       }
 
       #controls h3,
-      #climate-panel h3 {
+      #climate-panel h3,
+      #bivariate-panel h3 {
         margin: 0 0 15px 0;
         font-size: 16px;
         font-weight: lighter;
@@ -268,82 +270,99 @@
         margin: 0;
       }
 
-      #info-button {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        z-index: 1000;
+      /* Bivariate legend PNG */
+      .bivariate-legend-img {
+        width: 100%;
+        max-width: 250px;
+        display: block;
+        margin: 0 auto;
+      }
+
+      /* Overlay layers panel */
+      #overlay-panel {
         background: rgba(255, 255, 255, 0.95);
-        border: none;
-        padding: 10px;
+        padding: 15px;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        cursor: pointer;
-        font-size: 18px;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        min-width: 250px;
       }
 
-      #info-button:hover {
-        background: rgba(255, 255, 255, 1);
-      }
-
-      #info-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 2000;
-      }
-
-      #info-modal.show {
-        display: flex;
-      }
-
-      .info-content {
-        background: white;
-        padding: 30px;
-        border-radius: 8px;
-        max-width: 500px;
-        max-height: 80vh;
-        overflow-y: auto;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-      }
-
-      .info-content h3 {
-        margin-top: 0;
+      #overlay-panel h3 {
+        margin: 0 0 10px 0;
+        font-size: 16px;
+        font-weight: lighter;
         color: #333;
       }
 
-      .info-content h4 {
-        color: #666;
-        margin-top: 20px;
-        margin-bottom: 10px;
+      .overlay-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid #eee;
+        font-size: 11px;
       }
 
-      .info-content ul {
-        margin-bottom: 15px;
+      .overlay-item:last-child {
+        border-bottom: none;
       }
 
-      .close-button {
-        float: right;
-        background: none;
-        border: none;
-        font-size: 24px;
+      .overlay-item .overlay-color {
+        width: 14px;
+        height: 14px;
+        border: 1px solid #999;
+        flex-shrink: 0;
+      }
+
+      .overlay-item .overlay-name {
+        flex: 1;
+        color: #333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .overlay-item input[type="range"] {
+        width: 60px;
+      }
+
+      .overlay-item .overlay-delete {
         cursor: pointer;
         color: #999;
+        font-size: 14px;
+        padding: 0 2px;
       }
 
-      .close-button:hover {
+      .overlay-item .overlay-delete:hover {
+        color: #c00;
+      }
+
+      .overlay-empty {
+        font-size: 11px;
+        color: #999;
+        font-style: italic;
+      }
+
+      .add-to-map-btn {
+        padding: 4px 8px;
+        font-size: 10px;
+        border: 1px solid #ddd;
+        background: #f8f8f8;
+        border-radius: 3px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .add-to-map-btn:hover {
+        background: #e8e8e8;
+      }
+
+      /* Slider label display */
+      .slider-label-display {
+        font-size: 11px;
         color: #333;
+        text-align: center;
+        margin-top: 2px;
       }
     </style>
   </head>
@@ -352,47 +371,7 @@
 
     <div id="loading">
       <div class="spinner"></div>
-      <div>Loading DEM data...</div>
-    </div>
-
-    <!-- Info Button -->
-    <button id="info-button" onclick="toggleInfoModal()">?</button>
-
-    <!-- Info Modal -->
-    <div id="info-modal">
-      <div class="info-content">
-        <button class="close-button" onclick="toggleInfoModal()">
-          &times;
-        </button>
-
-        <h5>Navigation Controls</h5>
-
-        <p>Rotate: Left click and drag (mouse) / One finger drag (trackpad)</p>
-        <p>Zoom: Mouse wheel (mouse) / Two finger pinch or scroll (trackpad)</p>
-        <p>
-          Pan: Middle click and drag (mouse) / Two finger drag (trackpad) when
-          enabled
-        </p>
-
-        <h5>Data Sources</h5>
-        <p>DEM: USGS National Elevation Dataset (2016)</p>
-        <p>NLCD: USGS/MRLC National Land Cover Database (2016)</p>
-        <p>CDL: USDA National Agricultural Statistics Service (2020)</p>
-
-        <h5>Climate Models</h5>
-        <p>
-          <a href="https://github.com/ACCESS-NRI/ACCESS-ESM1.5" target="_blank"
-            >ACCESS-ESM1.5</a
-          >
-        </p>
-        <p>
-          <a
-            href="https://cmc.ipsl.fr/ipsl-climate-models/ipsl-cm6/"
-            target="_blank"
-            >IPSL-CM6A-LR</a
-          >
-        </p>
-      </div>
+      <div>Loading...</div>
     </div>
 
     <div id="controls-container">
@@ -406,10 +385,15 @@
             <option value="none">None</option>
             <option value="cdl">Cropland Data Layer (CDL)</option>
             <option value="nlcd">Land Cover (NLCD)</option>
+            <!-- Runoff Coefficient (disabled for now, easy to re-enable)
             <option value="runoff">Runoff Coefficient</option>
+            -->
+            <!-- Climate model layers (disabled for now, easy to re-enable)
             <option value="climate_precip">Climate Model: Precipitation</option>
             <option value="climate_temp">Climate Model: Temperature</option>
             <option value="climate_humidity">Climate Model: Humidity</option>
+            -->
+            <option value="bivariate">GCM Bivariate Projections</option>
           </select>
         </div>
 
@@ -535,6 +519,51 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Bivariate Projections Panel -->
+      <div id="bivariate-panel" style="display: none">
+        <h3>GCM Bivariate Projections</h3>
+
+        <div class="control-group">
+          <label
+            >Model:
+            <span id="bivariate-model-label"
+              >GRIDMET Baseline (2015-2025)</span
+            ></label
+          >
+          <input
+            type="range"
+            id="bivariate-model-slider"
+            min="0"
+            max="6"
+            step="1"
+            value="0"
+          />
+        </div>
+
+        <div class="control-group">
+          <label
+            >Season:
+            <span id="bivariate-season-label">Winter (DJF)</span></label
+          >
+          <input
+            type="range"
+            id="bivariate-season-slider"
+            min="0"
+            max="3"
+            step="1"
+            value="0"
+          />
+        </div>
+      </div>
+
+      <!-- Overlay Layers Panel -->
+      <div id="overlay-panel" style="display: none">
+        <h3>Pinned Overlays</h3>
+        <div id="overlay-list">
+          <div class="overlay-empty">No overlays added</div>
         </div>
       </div>
 

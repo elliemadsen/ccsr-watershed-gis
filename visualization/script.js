@@ -5,7 +5,7 @@ let terrainMesh;
 let demData;
 let cdlData;
 let nlcdData;
-let runoffData;
+// let runoffData; // disabled for now
 let precipTestData;
 let nlcdClasses;
 let cdlClasses;
@@ -26,6 +26,42 @@ let colorRangeMode = 'per-timestamp'; // 'per-timestamp' or 'global'
 let visualizationMode = 'interpolated'; // 'interpolated' or 'grid-cells'
 let gridBoundaryLines = null; // Three.js line object for climate grid boundaries
 let selectedCategories = new Set(); // Track selected categories for CDL/NLCD
+
+// Bivariate projection state
+let bivariateData = null; // Currently loaded bivariate JSON
+let bivariateModel = 'gridmet'; // Current model key
+let bivariateSeason = 'djf'; // Current season abbreviation
+let bivariateSeasonIndex = 0; // 0=winter, 1=spring, 2=summer, 3=fall
+
+const BIVARIATE_SEASONS = [
+    { abbr: 'djf', label: 'Winter (DJF)' },
+    { abbr: 'mam', label: 'Spring (MAM)' },
+    { abbr: 'jja', label: 'Summer (JJA)' },
+    { abbr: 'son', label: 'Fall (SON)' }
+];
+
+// Bivariate 3x3 color scheme (rows=precip low→high, cols=temp low→high)
+const BIVARIATE_COLORS_HEX = [
+    ['#e8e8e8', '#dfb0d6', '#be64ac'],  // Low precip
+    ['#ace4e4', '#a5add3', '#8c62aa'],  // Medium precip
+    ['#5ac8c8', '#5698b9', '#3b4994']   // High precip
+];
+
+// Bivariate model slider options
+const BIVARIATE_MODELS = [
+    { key: 'gridmet', label: 'GRIDMET Baseline (2015-2025)' },
+    { key: 'ACCESS-ESM1-5', label: 'ACCESS-ESM1-5 (Hot-Wet)' },
+    { key: 'IPSL-CM6A-LR', label: 'IPSL-CM6A-LR (Hot-Dry)' },
+    { key: 'CMCC-ESM2', label: 'CMCC-ESM2 (Warm-Wet)' },
+    { key: 'CNRM-CM6-1', label: 'CNRM-CM6-1 (Warm-Dry)' },
+    { key: 'INM-CM5-0', label: 'INM-CM5-0 (Median)' },
+    { key: 'model_average', label: 'Model Average' }
+];
+let bivariateModelIndex = 0; // index into BIVARIATE_MODELS
+
+// Overlay (pinned) layers
+let overlayLayers = []; // Array of { id, name, sourceType, categories, data, colormap, opacity }
+let nextOverlayId = 1;
 
 // Climate variable units mapping
 const climateUnits = {
@@ -50,8 +86,8 @@ async function init() {
         // Load NLCD data
         await loadNLCDData();
         
-        // Load Runoff data
-        await loadRunoffData();
+        // Load Runoff data (disabled for now)
+        // await loadRunoffData();
         
         // Load classification names
         await loadClassifications();
@@ -115,16 +151,16 @@ async function loadNLCDData() {
     console.log('NLCD colormap entries:', Object.keys(nlcdData.colormap).length);
 }
 
-// Load Runoff data from JSON
-async function loadRunoffData() {
-    const response = await fetch('web_data/runoff_data.json');
-    if (!response.ok) {
-        throw new Error('Failed to load web_data/runoff_data.json. Run prepare_runoff.py first!');
-    }
-    runoffData = await response.json();
-    console.log('Runoff loaded:', runoffData.width, 'x', runoffData.height);
-    console.log('Runoff range:', runoffData.range.min, '-', runoffData.range.max);
-}
+// Load Runoff data from JSON (disabled for now — easy to re-enable)
+// async function loadRunoffData() {
+//     const response = await fetch('web_data/runoff_data.json');
+//     if (!response.ok) {
+//         throw new Error('Failed to load web_data/runoff_data.json. Run prepare_runoff.py first!');
+//     }
+//     runoffData = await response.json();
+//     console.log('Runoff loaded:', runoffData.width, 'x', runoffData.height);
+//     console.log('Runoff range:', runoffData.range.min, '-', runoffData.range.max);
+// }
 
 // Load classification names
 async function loadClassifications() {
@@ -138,6 +174,28 @@ async function loadClassifications() {
     if (cdlResponse.ok) {
         cdlClasses = await cdlResponse.json();
         console.log('CDL classes loaded:', Object.keys(cdlClasses).length);
+    }
+}
+
+// Load bivariate projection data
+async function loadBivariateData(model, seasonAbbr) {
+    const filename = `web_data/bivariate_${model}_${seasonAbbr}.json`;
+    console.log('Loading bivariate data:', filename);
+    try {
+        const response = await fetch(filename);
+        if (!response.ok) {
+            console.warn(`Failed to load ${filename}: ${response.status}`);
+            bivariateData = null;
+            return;
+        }
+        bivariateData = await response.json();
+        console.log('Bivariate loaded:', bivariateData.width, 'x', bivariateData.height);
+        console.log('Colormap entries:', Object.keys(bivariateData.colormap).length);
+        console.log('Temp breaks:', bivariateData.temp_breaks);
+        console.log('Precip breaks:', bivariateData.precip_breaks);
+    } catch (err) {
+        console.error('Error loading bivariate data:', err);
+        bivariateData = null;
     }
 }
 
@@ -272,7 +330,7 @@ function setupScene() {
         1,
         100000
     );
-    camera.position.set(0, 5000, 10000);
+    camera.position.set(0, 35000, 35000);
     
     // Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -293,6 +351,8 @@ function setupScene() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enablePan = true; // Enable panning by default now
+    controls.target.set(0, 0, 0);
+    controls.update();
     
     // Handle resize
     window.addEventListener('resize', onWindowResize);
@@ -371,7 +431,21 @@ function createTerrain() {
             
             // Set color based on data layer
             const normalized = (elev - elevation.min) / elevRange;
-            const color = getColorForDataLayer(normalized, dataLayer, fullI, fullJ);
+            let color = getColorForDataLayer(normalized, dataLayer, fullI, fullJ);
+            
+            // Blend overlay layers on top
+            if (overlayLayers.length > 0) {
+                const overlay = getOverlayColor(fullI, fullJ);
+                if (overlay) {
+                    const a = overlay.opacity;
+                    color = {
+                        r: color.r * (1 - a) + overlay.r * a,
+                        g: color.g * (1 - a) + overlay.g * a,
+                        b: color.b * (1 - a) + overlay.b * a
+                    };
+                }
+            }
+            
             colors[vertIdx] = color.r;
             colors[vertIdx + 1] = color.g;
             colors[vertIdx + 2] = color.b;
@@ -474,21 +548,20 @@ function getColorForDataLayer(normalized, layer, row, col) {
                 }
             }
             return { r: 0.8, g: 0.8, b: 0.8 }; // Gray for NoData or unselected
+        /* Runoff case disabled for now — easy to re-enable
         case 'runoff':
-            // Get runoff value at this position
             if (runoffData && runoffData.data && row !== undefined && col !== undefined) {
                 if (row < runoffData.height && col < runoffData.width) {
                     const runoffValue = runoffData.data[row][col];
                     if (runoffValue !== null && runoffValue !== undefined) {
-                        // Normalize to 0-1 range
                         const normalized = (runoffValue - runoffData.range.min) / 
                                          (runoffData.range.max - runoffData.range.min);
-                        // Black to white gradient (same as elevation)
                         return { r: normalized, g: normalized, b: normalized };
                     }
                 }
             }
-            return { r: 0.8, g: 0.8, b: 0.8 }; // Gray for NoData
+            return { r: 0.8, g: 0.8, b: 0.8 };
+        */
         case 'climate_precip':
         case 'climate_temp':
         case 'climate_humidity':
@@ -539,6 +612,21 @@ function getColorForDataLayer(normalized, layer, row, col) {
                 }
             }
             return { r: 0.5, g: 0.5, b: 0.5 }; // Medium gray for missing data
+        case 'bivariate':
+            // Get bivariate class value at this position
+            if (bivariateData && bivariateData.data && row !== undefined && col !== undefined) {
+                if (row < bivariateData.height && col < bivariateData.width) {
+                    const bvValue = bivariateData.data[row][col];
+                    if (bvValue !== null && bvValue !== undefined && bvValue >= 0 && bvValue <= 8) {
+                        const colorKey = bvValue.toString();
+                        if (bivariateData.colormap && bivariateData.colormap[colorKey]) {
+                            const rgb = bivariateData.colormap[colorKey];
+                            return { r: rgb[0], g: rgb[1], b: rgb[2] };
+                        }
+                    }
+                }
+            }
+            return { r: 0.8, g: 0.8, b: 0.8 }; // Gray for NoData
         default:
             return { r: 0.7, g: 0.7, b: 0.7 };
     }
@@ -630,6 +718,7 @@ function updateLegend() {
                 <span>${Math.round(demData.elevation.max)}m</span>
             </div>
         `;
+    /* Runoff legend disabled for now — easy to re-enable
     } else if (dataLayer === 'runoff') {
         legend.classList.add('visible');
         legend.innerHTML = `
@@ -640,6 +729,7 @@ function updateLegend() {
                 <span>${runoffData.range.max.toFixed(3)}</span>
             </div>
         `;
+    */
     } else if (dataLayer === 'nlcd' && nlcdClasses && nlcdData) {
         // Get unique values present in data
         const uniqueValues = new Set();
@@ -658,6 +748,7 @@ function updateLegend() {
                 <div class="category-buttons">
                     <div class="category-btn" onclick="selectAllCategories('nlcd')">Select All</div>
                     <div class="category-btn" onclick="deselectAllCategories('nlcd')">Deselect All</div>
+                    <div class="add-to-map-btn" onclick="addCurrentLayerToOverlays()">Add to Map</div>
                 </div>
             </div>
         `;
@@ -698,6 +789,7 @@ function updateLegend() {
                 <div class="category-buttons">
                     <div class="category-btn" onclick="selectAllCategories('cdl')">Select All</div>
                     <div class="category-btn" onclick="deselectAllCategories('cdl')">Deselect All</div>
+                    <div class="add-to-map-btn" onclick="addCurrentLayerToOverlays()">Add to Map</div>
                 </div>
             </div>
         `;
@@ -759,6 +851,10 @@ function updateLegend() {
                 </div>
             `;
         }
+    } else if (dataLayer === 'bivariate' && bivariateData) {
+        legend.classList.add('visible');
+        const seasonAbbr = BIVARIATE_SEASONS[bivariateSeasonIndex].abbr;
+        legend.innerHTML = `<img class="bivariate-legend-img" src="web_data/bivariate_legend_${seasonAbbr}.png" alt="Bivariate Legend" />`;
     } else {
         legend.classList.remove('visible');
     }
@@ -912,7 +1008,23 @@ function setupControls() {
         // Reset categories when switching layers
         selectedCategories.clear();
         
-        // Show/hide climate panel
+        // Show/hide bivariate panel
+        const bivariatePanel = document.getElementById('bivariate-panel');
+        if (dataLayer === 'bivariate') {
+            bivariatePanel.style.display = 'block';
+            climatePanel.style.display = 'none';
+            // Load initial bivariate data
+            loadBivariateData(bivariateModel, bivariateSeason).then(() => {
+                updateLegend();
+                updateTerrain();
+            });
+            return;
+        } else {
+            bivariatePanel.style.display = 'none';
+        }
+        
+        // Show/hide climate panel (disabled for now — easy to re-enable)
+        /*
         if (dataLayer.startsWith('climate_')) {
             const config = climateModels[dataLayer];
             climatePanelTitle.textContent = config.title;
@@ -933,6 +1045,12 @@ function setupControls() {
         } else {
             climatePanel.style.display = 'none';
             updateLegend(); // Update legend for non-climate layers
+            updateTerrain();
+        }
+        */
+        // Non-climate layers: just update directly
+        if (!dataLayer.startsWith('climate_')) {
+            updateLegend();
             updateTerrain();
         }
     });
@@ -1004,6 +1122,34 @@ function setupControls() {
         });
     });
     
+    // Bivariate model slider
+    const bivariateModelSlider = document.getElementById('bivariate-model-slider');
+    if (bivariateModelSlider) {
+        bivariateModelSlider.addEventListener('input', async (e) => {
+            bivariateModelIndex = parseInt(e.target.value);
+            bivariateModel = BIVARIATE_MODELS[bivariateModelIndex].key;
+            document.getElementById('bivariate-model-label').textContent = 
+                BIVARIATE_MODELS[bivariateModelIndex].label;
+            await loadBivariateData(bivariateModel, bivariateSeason);
+            updateLegend();
+            updateTerrain();
+        });
+    }
+    
+    // Bivariate season slider
+    const bivariateSeasonSlider = document.getElementById('bivariate-season-slider');
+    if (bivariateSeasonSlider) {
+        bivariateSeasonSlider.addEventListener('input', async (e) => {
+            bivariateSeasonIndex = parseInt(e.target.value);
+            bivariateSeason = BIVARIATE_SEASONS[bivariateSeasonIndex].abbr;
+            document.getElementById('bivariate-season-label').textContent = 
+                BIVARIATE_SEASONS[bivariateSeasonIndex].label;
+            await loadBivariateData(bivariateModel, bivariateSeason);
+            updateLegend();
+            updateTerrain();
+        });
+    }
+    
     // Elevation scale slider
     const elevationSlider = document.getElementById('elevation-scale');
     const elevationValue = document.getElementById('elevation-value');
@@ -1054,10 +1200,136 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Toggle info modal
-function toggleInfoModal() {
-    const modal = document.getElementById('info-modal');
-    modal.classList.toggle('show');
+// --- Overlay (pinned) layers system ---
+
+// Add current CDL/NLCD selection as a pinned overlay
+function addCurrentLayerToOverlays() {
+    let sourceType, sourceData, sourceColormap, sourceClasses, sourceName;
+    
+    if (dataLayer === 'cdl' && cdlData) {
+        sourceType = 'cdl';
+        sourceData = cdlData;
+        sourceColormap = cdlData.colormap;
+        sourceClasses = cdlClasses;
+        sourceName = 'CDL';
+    } else if (dataLayer === 'nlcd' && nlcdData) {
+        sourceType = 'nlcd';
+        sourceData = nlcdData;
+        sourceColormap = nlcdData.colormap;
+        sourceClasses = nlcdClasses;
+        sourceName = 'NLCD';
+    } else {
+        return; // Only CDL/NLCD supported
+    }
+    
+    // Determine which categories are currently shown
+    let pinnedCategories;
+    if (selectedCategories.size === 0) {
+        // All selected — gather all unique values
+        pinnedCategories = new Set();
+        for (let row of sourceData.data) {
+            for (let val of row) {
+                if (val !== null) pinnedCategories.add(val.toString());
+            }
+        }
+    } else if (selectedCategories.has('__none__')) {
+        return; // Nothing selected
+    } else {
+        pinnedCategories = new Set(selectedCategories);
+    }
+    
+    // Build friendly name from selected categories
+    const catNames = [];
+    for (const catId of pinnedCategories) {
+        if (sourceClasses && sourceClasses[catId]) {
+            catNames.push(sourceClasses[catId]);
+        }
+    }
+    const layerName = catNames.length <= 3 
+        ? `${sourceName}: ${catNames.join(', ')}` 
+        : `${sourceName}: ${catNames.length} categories`;
+    
+    const overlay = {
+        id: nextOverlayId++,
+        name: layerName,
+        sourceType: sourceType,
+        categories: pinnedCategories,
+        data: sourceData,
+        colormap: sourceColormap,
+        opacity: 0.7
+    };
+    
+    overlayLayers.push(overlay);
+    updateOverlayPanel();
+    updateTerrain();
+    console.log('Added overlay:', layerName, 'with', pinnedCategories.size, 'categories');
+}
+
+// Remove an overlay by id
+function removeOverlay(id) {
+    overlayLayers = overlayLayers.filter(o => o.id !== id);
+    updateOverlayPanel();
+    updateTerrain();
+}
+
+// Update opacity of an overlay
+function setOverlayOpacity(id, opacity) {
+    const overlay = overlayLayers.find(o => o.id === id);
+    if (overlay) {
+        overlay.opacity = opacity;
+        updateTerrain();
+    }
+}
+
+// Update the overlay panel UI
+function updateOverlayPanel() {
+    const panel = document.getElementById('overlay-panel');
+    const list = document.getElementById('overlay-list');
+    
+    if (overlayLayers.length === 0) {
+        panel.style.display = 'none';
+        return;
+    }
+    
+    panel.style.display = 'block';
+    let html = '';
+    
+    for (const overlay of overlayLayers) {
+        const pct = Math.round(overlay.opacity * 100);
+        html += `
+            <div class="overlay-item">
+                <span class="overlay-name" title="${overlay.name}">${overlay.name}</span>
+                <input type="range" min="0" max="100" value="${pct}" 
+                       onchange="setOverlayOpacity(${overlay.id}, this.value/100)" 
+                       oninput="setOverlayOpacity(${overlay.id}, this.value/100)" />
+                <span class="overlay-delete" onclick="removeOverlay(${overlay.id})">&times;</span>
+            </div>
+        `;
+    }
+    
+    list.innerHTML = html;
+}
+
+// Get overlay color for a pixel (returns null if no overlay covers it)
+function getOverlayColor(row, col) {
+    // Process overlays from bottom to top (last added = on top)
+    for (let i = overlayLayers.length - 1; i >= 0; i--) {
+        const overlay = overlayLayers[i];
+        if (!overlay.data || !overlay.data.data) continue;
+        if (row >= overlay.data.height || col >= overlay.data.width) continue;
+        
+        const val = overlay.data.data[row][col];
+        if (val === null || val === undefined) continue;
+        
+        const valStr = val.toString();
+        if (!overlay.categories.has(valStr)) continue;
+        
+        if (overlay.colormap && overlay.colormap[valStr]) {
+            const rgb = overlay.colormap[valStr];
+            return { r: rgb[0], g: rgb[1], b: rgb[2], opacity: overlay.opacity };
+        }
+    }
+    return null;
 }
 
 // Start
