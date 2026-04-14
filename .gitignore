@@ -1,1 +1,4 @@
 .DS_Store
+
+# Large GCM model output — not tracked in git
+data/L-range/GCM_future_historical/
