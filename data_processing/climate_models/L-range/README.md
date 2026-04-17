@@ -40,7 +40,9 @@ For each season, compute the **multi-year seasonal mean** over the respective pe
 $$CF = \frac{\bar{X}_{future}^{model}}{\bar{X}_{hist}^{model}}$$
 $$X_{future}^{adjusted} = \bar{X}_{baseline}^{obs} \times CF$$
 
-We use the **multiplicative** method for both ET and LAI. Both variables have a natural zero floor (like precipitation, unlike temperature), making a ratio-based change factor the appropriate choice. This also avoids the unit mismatch between model and observed data.
+We use the **multiplicative** method for both ET and LAI. Both variables have a natural zero floor (like precipitation, unlike temperature), making a ratio-based change factor the appropriate choice.
+
+> **Unit note**: L-Range ET output is in **cm/month**; MODIS ET (MOD16A2GF) is in **mm/month**. There is a ~10× median difference (L-Range ≈ 2.5 cm/month, MODIS ≈ 10.5 mm/month ≈ 1.05 cm/month). Because the change factor CF = future / historical uses L-Range values in both numerator and denominator, the units cancel out and the CF is dimensionless. The final downscaled output inherits MODIS units (mm/month).
 
 ---
 
@@ -110,22 +112,22 @@ The script automatically discovers and processes all GCM subdirectories in `GCM_
 
 **Location**: `data/L-range/GCM_future_historical/{model_name}/`
 
-| Variable        | File Pattern                                                          | Count | Facets             | Year Range |
-| --------------- | --------------------------------------------------------------------- | ----- | ------------------ | ---------- |
-| ET (monthly)    | `et____1_{month}_{year}_avg_cells.asc`                                | 912   | 1 (index "1")      | 1990–2065  |
-| LAI (monthly)   | `lai___{facet}_{month}_{year}_avg_cells.asc`                          | 2,736 | 3 (facets 1, 2, 3) | 1990–2065  |
-| ET (yearly)     | `yr_et____1_{year}_avg_cells.asc`                                     | —     | 1                  | 1990–2065  |
-| LAI (yearly)    | `yr_lai___{facet}_{year}_avg_cells.asc`                               | —     | 3                  | 1990–2065  |
-| Other variables | `aevap`, `anpp`, `bare`, `facet`, `fsc`, `pet`, `stemp`, `talb`, `tr` | many  | varies             | —          |
+| Variable        | File Pattern                                                          | Units    | Count | Facets             | Year Range |
+| --------------- | --------------------------------------------------------------------- | -------- | ----- | ------------------ | ---------- |
+| ET (monthly)    | `et____1_{month}_{year}_avg_cells.asc`                                | cm/month | 912   | 1 (index "1")      | 1990–2065  |
+| LAI (monthly)   | `lai___{facet}_{month}_{year}_avg_cells.asc`                          | m²/m²    | 2,736 | 3 (facets 1, 2, 3) | 1990–2065  |
+| ET (yearly)     | `yr_et____1_{year}_avg_cells.asc`                                     | cm/year  | —     | 1                  | 1990–2065  |
+| LAI (yearly)    | `yr_lai___{facet}_{year}_avg_cells.asc`                               | m²/m²    | —     | 3                  | 1990–2065  |
+| Other variables | `aevap`, `anpp`, `bare`, `facet`, `fsc`, `pet`, `stemp`, `talb`, `tr` | varies   | many  | varies             | —          |
 
 ### Observed Data (MODIS)
 
 **Location**: `data/L-range/MODIS_baseline_obs/`
 
-| Folder | Variable      | File Pattern       | Count | Year Range | Source    |
-| ------ | ------------- | ------------------ | ----- | ---------- | --------- |
-| `ET/`  | ET (monthly)  | `et___YYYY_MM.asc` | 180   | 2006–2020  | MOD16A2GF |
-| `LAI/` | LAI (monthly) | `lai__YYYY_MM.asc` | 180   | 2006–2020  | MOD15A2H  |
+| Folder | Variable      | File Pattern       | Units    | Count | Year Range | Source    |
+| ------ | ------------- | ------------------ | -------- | ----- | ---------- | --------- |
+| `ET/`  | ET (monthly)  | `et___YYYY_MM.asc` | mm/month | 180   | 2006–2020  | MOD16A2GF |
+| `LAI/` | LAI (monthly) | `lai__YYYY_MM.asc` | m²/m²    | 180   | 2006–2020  | MOD15A2H  |
 
 ---
 
@@ -145,6 +147,8 @@ The model and observed grids are well-aligned:
 | **Unified mask (intersection)** | **28,521**   |
 
 A unified watershed mask has been generated at `data/L-range/watershed-mask/watershed_mask.asc` (1 = active in all three datasets, 0 = inactive). All processing uses this mask to ensure consistent spatial coverage.
+
+> **MODIS ET boundary artifacts**: A small number of watershed-edge cells produce extreme or negative ET values. Analysis across all 180 MODIS ET files found 63 cells that ever go negative and 58 cells that ever exceed 200 mm/month; 100% of the extreme-value cells (>200 mm) are watershed boundary pixels — MODIS 500 m pixels that physically straddle the watershed perimeter and receive a mixed inside/outside signal. These are not open-water contamination (NLCD class 11) or L-Range errors; they are a natural consequence of the boundary mixed-pixel effect. The pipeline's per-month IQR filter (`build_obs_et_bad_pixel_mask`) identifies and excludes these cells before computing the observational baseline.
 
 ---
 

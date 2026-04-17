@@ -22,7 +22,6 @@ import argparse
 import os
 import sys
 import warnings
-from datetime import datetime
 
 import numpy as np
 
@@ -419,15 +418,38 @@ def write_results_analysis(all_model_stats, variable, output_dir):
     """
     Write RESULTS_ANALYSIS.md for a single variable into its output directory.
     The file is (re)written on every run.
+
+    All ET values are reported in mm/month.  L-Range ET output is cm/month,
+    so historical and future model layers are multiplied by 10 before writing.
+    MODIS ET, change factors, and downscaled future are already in mm/month.
+    LAI values (both L-Range and MODIS) are m²/m² with no conversion needed.
     """
     out_path = os.path.join(output_dir, "RESULTS_ANALYSIS.md")
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
     model_names = sorted(all_model_stats.keys())
     var_upper = variable.upper()
 
+    # (layer_key, display_label, scale_factor)
+    # ET: L-Range hist/future are cm/month → ×10 to convert to mm/month.
+    # LAI: all layers are m²/m²; no conversion.
+    if variable == "et":
+        LAYER_KEYS = [
+            ("hist",   "GCM Historical Seasonal Mean (mm/month)",            10.0),
+            ("future", "GCM Future Seasonal Mean (mm/month)",                10.0),
+            ("obs",    "Observational Baseline — MODIS (mm/month)",          1.0),
+            ("cf",     "Change Factor — Future / Historical (dimensionless)", 1.0),
+            ("adj",    "Downscaled Future (mm/month)",                        1.0),
+        ]
+    else:  # lai
+        LAYER_KEYS = [
+            ("hist",   "GCM Historical Seasonal Mean (m\u00b2/m\u00b2)",            1.0),
+            ("future", "GCM Future Seasonal Mean (m\u00b2/m\u00b2)",                1.0),
+            ("obs",    "Observational Baseline — MODIS (m\u00b2/m\u00b2)",          1.0),
+            ("cf",     "Change Factor — Future / Historical (dimensionless)", 1.0),
+            ("adj",    "Downscaled Future (m\u00b2/m\u00b2)",                        1.0),
+        ]
+
     lines = []
     lines.append(f"# Delta Change Downscaling \u2014 {var_upper} Results Analysis\n\n")
-    lines.append(f"*Generated: {now}*\n\n")
     lines.append("---\n\n")
     lines.append("## Run Summary\n\n")
     lines.append("| Parameter | Value |\n|-----------|-------|\n")
@@ -438,15 +460,7 @@ def write_results_analysis(all_model_stats, variable, output_dir):
     lines.append(f"| Observational baseline | {OBS_YEARS[0]}\u2013{OBS_YEARS[-1]} |\n\n")
     lines.append("---\n\n")
 
-    LAYER_KEYS = [
-        ("hist",   "GCM Historical Seasonal Mean"),
-        ("future", "GCM Future Seasonal Mean"),
-        ("obs",    "Observational Baseline (MODIS)"),
-        ("cf",     "Change Factor (Future / Historical)"),
-        ("adj",    "Downscaled Future"),
-    ]
-
-    for layer_key, layer_label in LAYER_KEYS:
+    for layer_key, layer_label, scale in LAYER_KEYS:
         lines.append(f"## {var_upper} \u2014 {layer_label}\n\n")
         lines.append("| Model | Season | Min | Max | Mean | Median |\n")
         lines.append("|-------|--------|-----|-----|------|--------|\n")
@@ -456,13 +470,12 @@ def write_results_analysis(all_model_stats, variable, output_dir):
                 vals = [s.get(f"{layer_key}_{k}") for k in ("min", "max", "mean", "median")]
                 if any(v is None for v in vals):
                     continue
+                scaled = [v * scale for v in vals]
                 lines.append(
-                    f"| {mn} | {season} | {vals[0]:.4f} | {vals[1]:.4f}"
-                    f" | {vals[2]:.4f} | {vals[3]:.4f} |\n"
+                    f"| {mn} | {season} | {scaled[0]:.4f} | {scaled[1]:.4f}"
+                    f" | {scaled[2]:.4f} | {scaled[3]:.4f} |\n"
                 )
         lines.append("\n")
-
-    lines.append("*End of results analysis.*\n")
 
     os.makedirs(output_dir, exist_ok=True)
     with open(out_path, "w") as f:
