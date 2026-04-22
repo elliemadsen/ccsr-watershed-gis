@@ -3,7 +3,7 @@
 GRIDMET Min/Max Temperature Processing Script
 
 This script processes GRIDMET daily minimum and maximum temperature data separately:
-1. Downloads GRIDMET minimum (tmmn) and maximum (tmmx) temperature data from 2015 to present
+1. Downloads GRIDMET minimum (tmmn) and maximum (tmmx) temperature data from 2006 to 2020
 2. Processes each variable separately (no averaging)
 3. Clips to DEM boundary
 4. Aggregates to seasonal averages (DJF, MAM, JJA, SON) and individual monthly averages
@@ -421,8 +421,8 @@ def main():
     print("="*60)
     
     # Configuration
-    start_year = 2015
-    end_year = 2025
+    start_year = 2006
+    end_year = 2020
     skip_download = False  # Set to True to skip downloading and only process existing files
     
     # Paths (relative to script location in data_processing/temp/)

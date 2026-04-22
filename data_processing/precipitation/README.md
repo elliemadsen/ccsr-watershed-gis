@@ -20,7 +20,7 @@ python process_gridmet.py
 
 ## What the script does
 
-1. **Downloads GRIDMET data** - Fetches daily precipitation NetCDF files from 2015 to present
+1. **Downloads GRIDMET data** - Fetches daily precipitation NetCDF files from 2006 to 2020
 2. **Clips to watershed boundary** - Extracts data using the Subbasins shapefile with a 5km buffer
 3. **Aggregates to seasons and months** - Computes both:
    - **Seasonal totals:**
@@ -47,15 +47,15 @@ python process_gridmet.py
 - `precip_final_30m_{year_range}_jja.tif` (Summer: June-July-August)
 - `precip_final_30m_{year_range}_son.tif` (Fall: September-October-November)
 
-where `{year_range}` is automatically determined from available data (e.g., `2015-2025`)
+where `{year_range}` is `2006-2020`
 
 Each seasonal file contains the multi-year average precipitation in mm, reprojected to UTM Zone 18N at 30m resolution.
 
 **Individual monthly totals** (`data/precipitation/processed/monthly/`):
 
-- `precip_30m_2015_01.tif`, `precip_30m_2015_02.tif`, ... `precip_30m_2015_12.tif`
-- `precip_30m_2016_01.tif`, `precip_30m_2016_02.tif`, ... `precip_30m_2016_12.tif`
-- ... and so on for each year
+- `precip_30m_2006_01.tif`, `precip_30m_2006_02.tif`, ... `precip_30m_2006_12.tif`
+- `precip_30m_2007_01.tif`, `precip_30m_2007_02.tif`, ... `precip_30m_2007_12.tif`
+- ... and so on through 2020
 
 Each monthly file contains the total precipitation for that specific month in mm, reprojected to UTM Zone 18N at 30m resolution.
 

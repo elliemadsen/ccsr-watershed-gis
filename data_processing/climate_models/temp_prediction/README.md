@@ -22,7 +22,7 @@ The GCM temperature projections from NEX-GDDP-CMIP6 v2 are at ~25 km resolution.
 
 1. **Historical period (1990-2019)**: GCM modeled historical data at grid points
 2. **Future period (2035-2064)**: GCM future projections at grid points
-3. **Present baseline period (2015-2025)**: High-resolution GRIDMET observed rasters (30m) that get multiplied by change factors
+3. **Present baseline period (2006-2020)**: High-resolution GRIDMET observed rasters (30m) that get multiplied by change factors
 
 ### Step 1: Compute seasonal means at the GCM grid scale
 
@@ -45,11 +45,11 @@ For each GCM and each season, compute the additive change factor at each GCM gri
 
 The change factors are interpolated from the sparse GCM grid (~6 points covering the watershed) to the 30m resolution using IDW.
 
-For each GCM and each season, add the interpolated change factors to the present baseline GRIDMET raster (2015-2025 @ 30m). This is done separately for minimum and maximum temperature:
+For each GCM and each season, add the interpolated change factors to the present baseline GRIDMET raster (2006-2020 @ 30m). This is done separately for minimum and maximum temperature:
 
 ```
-temp_min_future_30m (2035-2064) = temp_min_baseline_30m (2015-2025) + ΔT_tasmin
-temp_max_future_30m (2035-2064) = temp_max_baseline_30m (2015-2025) + ΔT_tasmax
+temp_min_future_30m (2035-2064) = temp_min_baseline_30m (2006-2020) + ΔT_tasmin
+temp_max_future_30m (2035-2064) = temp_max_baseline_30m (2006-2020) + ΔT_tasmax
 ```
 
 ---
@@ -75,9 +75,10 @@ All scripts are located in `data_processing/climate_models/temp_prediction/` and
      - GeoJSON files: `change_factors_{model}_tasmin_ssp370.geojson`, `change_factors_{model}_tasmax_ssp370.geojson`
 
 3. **3_apply_change_factors.py**
-   - Input: Change factors (GeoJSON) from `data/climate_models/temp_prediction/2_change_factors/` and GRIDMET baseline rasters (2015-2025) from `data/temp/processed/seasonal/`
-     - Baseline files: `temp_min_final_30m_2015-2025_{season}.tif`, `temp_max_final_30m_2015-2025_{season}.tif`
+   - Input: Change factors (GeoJSON) from `data/climate_models/temp_prediction/2_change_factors/` and GRIDMET baseline rasters (2006-2020) from `data/temp/processed/seasonal/`
+     - Baseline files: `temp_min_final_30m_2006-2020_{season}.tif`, `temp_max_final_30m_2006-2020_{season}.tif`
    - Output: Future projection rasters (2035-2064) in `data/climate_models/temp_prediction/3_future_projections/`
+   - Note: outputs generated with the previous 2015-2025 baseline are archived in `data/climate_models/old_baseline_dates/temp_prediction/`
      - `temp_min_future_{model}_2035-2064_{season}_30m.tif`
      - `temp_max_future_{model}_2035-2064_{season}_30m.tif`
 
@@ -85,7 +86,7 @@ All scripts are located in `data_processing/climate_models/temp_prediction/` and
 
 Located in `data_processing/temp/`:
 
-- **process_gridmet.py**: Downloads GRIDMET minimum (tmmn) and maximum (tmmx) temperature data from 2015-2025, processes them separately, clips to watershed, aggregates to seasonal and monthly averages, and reprojects to 30m resolution in UTM Zone 18N (EPSG:32618)
+- **process_gridmet.py**: Downloads GRIDMET minimum (tmmn) and maximum (tmmx) temperature data from 2006-2020, processes them separately, clips to watershed, aggregates to seasonal and monthly averages, and reprojects to 30m resolution in UTM Zone 18N (EPSG:32618)
 
 ### Data Paths
 
@@ -109,9 +110,9 @@ ccsr-watershed-gis/
 │       │   ├── min/               # GRIDMET tmmn NetCDF files (minimum temperature)
 │       │   └── max/               # GRIDMET tmmx NetCDF files (maximum temperature)
 │       └── processed/
-│           └── seasonal/          # GRIDMET baseline rasters (30m, 2015-2025)
-│               ├── temp_min_final_30m_2015-2025_{season}.tif
-│               └── temp_max_final_30m_2015-2025_{season}.tif
+│           └── seasonal/          # GRIDMET baseline rasters (30m, 2006-2020)
+│               ├── temp_min_final_30m_2006-2020_{season}.tif
+│               └── temp_max_final_30m_2006-2020_{season}.tif
 ├── data_processing/
 │   ├── climate_models/
 │   │   └── temp_prediction/       # This directory: GCM processing scripts

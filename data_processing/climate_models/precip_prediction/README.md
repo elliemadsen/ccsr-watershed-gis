@@ -24,7 +24,7 @@ The GCM projections from NEX-GDDP-CMIP6 v2 are at ~25 km (0.25°) resolution. Th
 
 1. **Historical period (1990-2019)**: GCM modeled historical data at grid points (denominator for change factors)
 2. **Future period (2035-2064)**: GCM future projections at grid points (numerator for change factors)
-3. **Present baseline period (2015-2025)**: High-resolution GRIDMET observed rasters (30m) that get multiplied by change factors
+3. **Present baseline period (2006-2020)**: High-resolution GRIDMET observed rasters (30m) that get multiplied by change factors
 
 **Key principle**: Change factors are computed from GCM historical to GCM future (not observed historical to GCM future) to keep GCM biases consistent. This ensures we're using the GCM's projection of change, not comparing biased GCM output directly to observations.
 
@@ -35,7 +35,7 @@ For each GCM, aggregate daily precipitation to seasonal totals (DJF, MAM, JJA, S
 - **Historical period**: 1990-2019 (GCM modeled historical at 6 grid points)
 - **Future period**: 2035-2064 (GCM future projection at 6 grid points)
 
-Note: GRIDMET observed data (2015-2025) is kept separate as the high-resolution baseline to which change factors will be applied.
+Note: GRIDMET observed data (2006-2020) is kept separate as the high-resolution baseline to which change factors will be applied.
 
 ### Step 2: Compute precipitation change factors
 
@@ -65,10 +65,10 @@ The change factors are interpolated from the sparse GCM grid (~6 points covering
 - More physically realistic than nearest neighbor (avoids sharp Voronoi boundaries)
 - Consistent with atmospheric processes that vary continuously in space
 
-For each GCM and each season, multiply the present baseline GRIDMET raster (2015-2025 @ 30m) by the interpolated change factor:
+For each GCM and each season, multiply the present baseline GRIDMET raster (2006-2020 @ 30m) by the interpolated change factor:
 
 ```
-precip_future_30m (2035-2064) = precip_baseline_30m (2015-2025) × CF_precip
+precip_future_30m (2035-2064) = precip_baseline_30m (2006-2020) × CF_precip
 ```
 
 **Output**: 20 rasters (5 GCMs × 4 seasons)
@@ -89,7 +89,7 @@ All scripts are located in `data_processing/climate_models/precip_prediction/` a
    - Handles unit conversion: GCM (kg/m²/s → kg/m² daily)
    - Input: GCM CSVs from `data/climate_models/raw/daily_1990_2015/` and `daily_2015_2065/`
    - Output: Seasonal means in `data/climate_models/precip_prediction/1_seasonal_means/`
-   - Note: GRIDMET baseline (2015-2025) rasters already exist at 30m resolution
+   - Note: GRIDMET baseline (2006-2020) rasters already exist at 30m resolution
 
 2. **2_compute_change_factors.py**
    - Computes change factors (CF = GCM_future/GCM_historical) for each GCM and season
@@ -98,12 +98,13 @@ All scripts are located in `data_processing/climate_models/precip_prediction/` a
    - Output: Change factors in `data/climate_models/precip_prediction/2_change_factors/`
 
 3. **3_apply_change_factors.py**
-   - Applies change factors to present baseline (2015-2025) using IDW interpolation
+   - Applies change factors to present baseline (2006-2020) using IDW interpolation
    - Interpolates change factors from 6 GCM grid points to 30m resolution
    - Multiplies interpolated change factors by baseline rasters
    - Outputs use EPSG:32618 (WGS84 / UTM zone 18N)
-   - Input: Change factors (GeoJSON) from `data/climate_models/precip_prediction/2_change_factors/` and GRIDMET baseline rasters (2015-2025) from `data/precipitation/processed/seasonal/`
+   - Input: Change factors (GeoJSON) from `data/climate_models/precip_prediction/2_change_factors/` and GRIDMET baseline rasters (2006-2020) from `data/precipitation/processed/seasonal/`
    - Output: Future projection rasters (2035-2064) in `data/climate_models/precip_prediction/3_future_projections/`
+   - Note: outputs generated with the previous 2015-2025 baseline are archived in `data/climate_models/old_baseline_dates/precip_prediction/`
 
 **Utility Scripts:**
 
@@ -125,7 +126,7 @@ ccsr-watershed-gis/
 │   │       └── 3_future_projections/  # Step 3 output: future precipitation rasters (30m)
 │   └── precipitation/
 │       └── processed/
-│           └── seasonal/          # GRIDMET baseline rasters (30m, 2015-2025)
+│           └── seasonal/          # GRIDMET baseline rasters (30m, 2006-2020)
 ├── data_processing/
 │   └── climate_models/
 │       └── precip_prediction/     # This directory: processing scripts

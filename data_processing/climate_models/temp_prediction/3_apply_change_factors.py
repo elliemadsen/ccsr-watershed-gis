@@ -3,20 +3,20 @@
 Step 3: Apply change factors to observed GRIDMET baseline
 
 This script applies the computed change factors to the baseline GRIDMET
-temperature rasters (2015-2025 @ 30m) to create future climate projections
+temperature rasters (2006-2020 @ 30m) to create future climate projections
 (2035-2064 @ 30m).
 
 The process:
 1. Load change factors for each model and season (point data at 6 GCM grid points)
 2. Interpolate change factors to 30m resolution using Inverse Distance Weighting (IDW)
-3. Add the interpolated change factors to the present GRIDMET baseline rasters (2015-2025)
+3. Add the interpolated change factors to the present GRIDMET baseline rasters (2006-2020)
 
 Interpolation method: IDW with power=2 (inverse square distance)
 - Creates smooth gradients between GCM grid points
 - More physically realistic than nearest neighbor (Voronoi)
 - Each pixel weighted by all GCM points based on distance
 
-Formula: temp_future_30m (2035-2064) = temp_baseline_30m (2015-2025) + ΔT
+Formula: temp_future_30m (2035-2064) = temp_baseline_30m (2006-2020) + ΔT
 
 Note: Temperature uses ADDITIVE change factors (ΔT in Kelvin), unlike precipitation
       which uses multiplicative change factors (ratios).
@@ -66,6 +66,7 @@ SEASONS = ['djf', 'mam', 'jja', 'son']
 # Period labels
 HISTORICAL_PERIOD = '1990-2019'
 FUTURE_PERIOD = '2035-2064'
+BASELINE_PERIOD = '2006-2020'
 
 
 def load_change_factors_geojson(model_name, variable):
@@ -132,18 +133,8 @@ def load_gridmet_baseline(season, variable):
     Returns:
         tuple: (data array, raster profile)
     """
-    # Look for files matching the pattern with year range
-    import glob
     var_name = 'min' if variable == 'tasmin' else 'max'
-    pattern = str(GRIDMET_DIR / f'temp_{var_name}_final_30m_*_{season}.tif')
-    matching_files = glob.glob(pattern)
-    
-    if not matching_files:
-        # Fallback to old naming without year range
-        file_path = GRIDMET_DIR / f'temp_{var_name}_final_30m_{season}.tif'
-    else:
-        # Use the most recent file (sorted alphabetically, which works for year ranges)
-        file_path = Path(sorted(matching_files)[-1])
+    file_path = GRIDMET_DIR / f'temp_{var_name}_final_30m_{BASELINE_PERIOD}_{season}.tif'
     
     if not file_path.exists():
         raise FileNotFoundError(f"GRIDMET baseline raster not found: {file_path}")

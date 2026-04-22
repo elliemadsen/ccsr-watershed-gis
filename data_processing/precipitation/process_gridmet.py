@@ -3,7 +3,7 @@
 GRIDMET Precipitation Processing Script
 
 This script processes GRIDMET daily precipitation data:
-1. Downloads GRIDMET precipitation data from 2015 to present
+1. Downloads GRIDMET precipitation data from 2006 to 2020
 2. Clips to DEM boundary
 3. Aggregates to seasonal totals (DJF, MAM, JJA, SON) and individual monthly totals
 4. Computes multi-year seasonal averages (seasonal only, not monthly)
@@ -365,17 +365,8 @@ def quality_check_statistics(raster_path):
 
 def main():
     # Hard-coded configuration
-    start_year = 2015
-    current_year = datetime.now().year
-    current_month = datetime.now().month
-    
-    # Only include current year if we have at least some complete seasons
-    # GRIDMET data typically has a few days lag, so use current_year - 1 as safe default
-    # But if we're past March, we can include current year for at least some seasons
-    if current_month >= 3:  # After March, we have DJF complete
-        end_year = current_year
-    else:
-        end_year = current_year - 1
+    start_year = 2006
+    end_year = 2020
     
     watershed_path = '../../data/sub-basins/Subbasins.shp'
     raw_data_dir = Path('../../data/precipitation/raw')
