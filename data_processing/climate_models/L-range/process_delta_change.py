@@ -36,6 +36,7 @@ from utils import (
     read_asc_header,
     read_asc,
     write_asc,
+    write_tiff,
     read_mask,
     load_model_et,
     load_model_lai_total,
@@ -51,8 +52,12 @@ GCM_DIR    = os.path.join(DATA_DIR, "GCM_future_historical")
 OBS_DIR    = os.path.join(DATA_DIR, "MODIS_baseline_obs")
 MASK_PATH  = os.path.join(DATA_DIR, "watershed-mask", "watershed_mask.asc")
 OUTPUT_DIRS = {
-    "et":  os.path.join(DATA_DIR, "downscaled_output_ET"),
-    "lai": os.path.join(DATA_DIR, "downscaled_output_LAI"),
+    "et":  os.path.join(DATA_DIR, "ET", "asc"),
+    "lai": os.path.join(DATA_DIR, "LAI", "asc"),
+}
+TIFF_DIRS = {
+    "et":  os.path.join(DATA_DIR, "ET", "tiff"),
+    "lai": os.path.join(DATA_DIR, "LAI", "tiff"),
 }
 
 HIST_YEARS = range(1990, 2020)       # 30-year historical window
@@ -661,6 +666,10 @@ def main():
                     os.path.join(adj_root, model_name, f"{var_upper}_{season}_downscaled_future_{model_name}.asc"),
                     model_header, adjusted,
                 )
+                write_tiff(
+                    os.path.join(TIFF_DIRS[var], f"{var_upper}_{model_name}_{season}_downscaled_future.tiff"),
+                    model_header, adjusted,
+                )
 
                 # Sanity-check notes
                 notes = []
@@ -683,7 +692,8 @@ def main():
     print("COMPLETE")
     print(f"{'=' * 60}")
     for var in variables:
-        print(f"  Output ({var.upper()}): {os.path.relpath(OUTPUT_DIRS[var], REPO_ROOT)}/")
+        print(f"  ASC output  ({var.upper()}): {os.path.relpath(OUTPUT_DIRS[var], REPO_ROOT)}/")
+        print(f"  TIFF output ({var.upper()}): {os.path.relpath(TIFF_DIRS[var], REPO_ROOT)}/")
 
 
 if __name__ == "__main__":

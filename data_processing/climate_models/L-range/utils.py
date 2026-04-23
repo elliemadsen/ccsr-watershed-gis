@@ -83,6 +83,47 @@ def write_asc(filepath, header, data):
             f.write(" ".join(f"{v:.5f}" for v in row) + "\n")
 
 
+def write_tiff(filepath, header, data, crs="EPSG:26918"):
+    """
+    Write a GeoTIFF from an ASC header + 1-D data array.
+
+    Parameters
+    ----------
+    filepath : str
+    header : dict  (ncols, nrows, xllcorner, yllcorner, cellsize, nodata_value)
+    data : np.ndarray  (1-D, length = ncols * nrows)
+    crs : str   EPSG code (default: NAD83 / UTM Zone 18N, matching the L-Range grids)
+    """
+    import rasterio
+    from rasterio.transform import from_origin
+
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    ncols = int(header["ncols"])
+    nrows = int(header["nrows"])
+    cellsize = float(header["cellsize"])
+    west = float(header["xllcorner"])
+    north = float(header["yllcorner"]) + nrows * cellsize
+    nodata = float(header["nodata_value"])
+
+    transform = from_origin(west, north, cellsize, cellsize)
+    grid = data.reshape(nrows, ncols).astype(np.float32)
+
+    with rasterio.open(
+        filepath,
+        "w",
+        driver="GTiff",
+        height=nrows,
+        width=ncols,
+        count=1,
+        dtype="float32",
+        crs=crs,
+        transform=transform,
+        nodata=nodata,
+        compress="lzw",
+    ) as dst:
+        dst.write(grid, 1)
+
+
 def read_mask(filepath):
     """Read the unified watershed mask and return a boolean array."""
     _, data = read_asc(filepath)
