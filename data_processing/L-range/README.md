@@ -1,0 +1,222 @@
+# L-Range Delta Change Downscaling — LAI and ET
+
+## Overview
+
+This data analysis downscales L-Range vegetation model outputs for **Leaf Area Index (LAI)** and **Evapotranspiration (ET)** from the Cannonsville Watershed using the **delta change method**. The approach calculates seasonal change factors between modeled historical and future periods, then applies those change factors to high-resolution MODIS observational baselines to produce bias-corrected future projections.
+
+### Models and Scenarios
+
+- **Vegetation Model**: L-Range (localized version of G-Range)
+- **GCMs**: ACCESS-ESM1-5, CMCC-ESM2, CNRM-CM6-1, INM-CM5-0, IPSL-CM6A-LR
+- **Scenario**: SSP3-7.0
+- **Coordinate System**: UTM Zone 18N, WGS 1984
+- **Grid**: 340 × 225 cells, 200 m cell size
+
+---
+
+## Method: Delta Change Downscaling
+
+### Time Periods
+
+| Period                 | Years     | Purpose                                         |
+| ---------------------- | --------- | ----------------------------------------------- |
+| Historical (modeled)   | 1990–2019 | Compute modeled historical seasonal climatology |
+| Future (modeled)       | 2035–2064 | Compute modeled future seasonal climatology     |
+| Observational baseline | 2006–2020 | High-resolution MODIS baseline to adjust        |
+
+### Seasonal Aggregation
+
+Monthly data is aggregated into four seasons:
+
+- **DJF** (December, January, February)
+- **MAM** (March, April, May)
+- **JJA** (June, July, August)
+- **SON** (September, October, November)
+
+For each season, compute the **multi-year seasonal mean** over the respective period.
+
+### Delta Change Formulas
+
+$$CF = \frac{\bar{X}_{future}^{model}}{\bar{X}_{hist}^{model}}$$
+$$X_{future}^{adjusted} = \bar{X}_{baseline}^{obs} \times CF$$
+
+We use the **multiplicative** method for both ET and LAI. Both variables have a natural zero floor (like precipitation, unlike temperature), making a ratio-based change factor the appropriate choice.
+
+> **Unit note**: L-Range ET output is in **cm/month**; MODIS ET (MOD16A2GF) is in **mm/month**. There is a ~10× median difference (L-Range ≈ 2.5 cm/month, MODIS ≈ 10.5 mm/month ≈ 1.05 cm/month). Because the change factor CF = future / historical uses L-Range values in both numerator and denominator, the units cancel out and the CF is dimensionless. The final downscaled output inherits MODIS units (mm/month).
+
+---
+
+## Processing Steps
+
+### Step 1: Parse L-Range Model Data
+
+1. Read monthly `.asc` files for ET and LAI from the model output directory
+2. For LAI: **sum the 3 facets** (plant functional groups) to get total LAI per cell
+3. Apply the unified watershed mask (see below)
+4. Assign each month to its season (DJF, MAM, JJA, SON)
+   - Note: December of year N belongs to the DJF of year N+1
+
+### Step 2: Compute Modeled Seasonal Climatologies
+
+1. For each season, average all monthly grids within that season across the period
+   - **Historical**: 1990–2019 (30 years × 3 months/season = 90 grids per season)
+   - **Future**: 2035–2064 (same structure)
+2. Result: 4 seasonal mean grids per variable per period
+3. Each 200 m mean grid is **bilinearly resampled to 30 m** and written to:
+   - `data/ET/hist_L-range/` and `data/ET/future_L-range/`
+   - `data/LAI/hist_L-range/` and `data/LAI/future_L-range/`
+   - Filename: `{VAR}_{MODEL}_{SEASON}_{hist|future}_L-range_{YEARS}.tiff`
+
+> **Resampling note**: The L-Range model output is a full 200 m watershed raster
+> (340 × 225 cells). The 30 m output is produced by bilinear resampling, which
+> is appropriate for gridded fields. IDW is used only for sparse point data
+> (e.g., the 6-point GCM grid for precipitation / temperature).
+
+### Step 3: Compute Change Factors
+
+1. For each season, compute the multiplicative change factor grid:
+   - `CF = future_mean / historical_mean`
+2. Apply watershed mask; set CF = NODATA outside mask
+
+### Step 4: Compute Observational Baseline Climatology
+
+1. Read MODIS observed monthly `.asc` files (2006–2020)
+2. Aggregate to seasonal means (same DJF/MAM/JJA/SON scheme)
+
+### Step 5: Apply Change Factors
+
+1. For each season: `adjusted = baseline_obs × CF`
+2. Mask output to unified watershed mask
+3. Write results as **GeoTIFF** (LZW-compressed, float32, EPSG:26918, 200 m)
+
+### Step 6: Validation & Visualization
+
+1. Map the change factors and adjusted outputs
+2. Compare spatial patterns across all GCMs & write results summary
+
+---
+
+## Usage
+
+```bash
+# Process both ET and LAI for all models (default)
+python process_delta_change.py
+
+# Process ET only
+python process_delta_change.py --variable et
+
+# Process LAI only
+python process_delta_change.py --variable lai
+```
+
+The script automatically discovers and processes all GCM subdirectories in `GCM_future_historical/`. Results and a full statistics summary are written to `data/L-range/downscaled_output_ET/` and `data/L-range/downscaled_output_LAI/`.
+
+`RESULTS_ANALYSIS.md` is auto-generated by the script on each run into each variable's output directory. Contains per-model statistics tables for GCM historical means, GCM future means, observational baseline, change factors, and downscaled future output.
+
+---
+
+## Data Inventory
+
+### L-Range Model Output
+
+**Location**: `data/L-range/GCM_future_historical/{model_name}/`
+
+| Variable        | File Pattern                                                          | Units    | Count | Facets             | Year Range |
+| --------------- | --------------------------------------------------------------------- | -------- | ----- | ------------------ | ---------- |
+| ET (monthly)    | `et____1_{month}_{year}_avg_cells.asc`                                | cm/month | 912   | 1 (index "1")      | 1990–2065  |
+| LAI (monthly)   | `lai___{facet}_{month}_{year}_avg_cells.asc`                          | m²/m²    | 2,736 | 3 (facets 1, 2, 3) | 1990–2065  |
+| ET (yearly)     | `yr_et____1_{year}_avg_cells.asc`                                     | cm/year  | —     | 1                  | 1990–2065  |
+| LAI (yearly)    | `yr_lai___{facet}_{year}_avg_cells.asc`                               | m²/m²    | —     | 3                  | 1990–2065  |
+| Other variables | `aevap`, `anpp`, `bare`, `facet`, `fsc`, `pet`, `stemp`, `talb`, `tr` | varies   | many  | varies             | —          |
+
+### Observed Data (MODIS)
+
+**Location**: `data/L-range/MODIS_baseline_obs/`
+
+| Folder | Variable      | File Pattern       | Units    | Count | Year Range | Source    |
+| ------ | ------------- | ------------------ | -------- | ----- | ---------- | --------- |
+| `ET/`  | ET (monthly)  | `et___YYYY_MM.asc` | mm/month | 180   | 2006–2020  | MOD16A2GF |
+| `LAI/` | LAI (monthly) | `lai__YYYY_MM.asc` | m²/m²    | 180   | 2006–2020  | MOD15A2H  |
+
+---
+
+### Grid Alignment & Unified Watershed Mask
+
+The model and observed grids are well-aligned:
+
+- **Same dimensions**: 340 × 225 cells
+- **Same cell size**: 200 m
+- **Same origin**: xllcorner = 468543.82, yllcorner = 4656363.14
+
+| Dataset                         | Active Cells |
+| ------------------------------- | ------------ |
+| Model (non-zero)                | 28,767       |
+| Observed ET (non-NODATA)        | 29,297       |
+| Observed LAI (non-NODATA)       | 28,890       |
+| **Unified mask (intersection)** | **28,521**   |
+
+A unified watershed mask has been generated at `data/L-range/watershed-mask/watershed_mask.asc` (1 = active in all three datasets, 0 = inactive). All processing uses this mask to ensure consistent spatial coverage.
+
+> **MODIS ET boundary artifacts**: A small number of watershed-edge cells produce extreme or negative ET values. Analysis across all 180 MODIS ET files found 63 cells that ever go negative and 58 cells that ever exceed 200 mm/month; 100% of the extreme-value cells (>200 mm) are watershed boundary pixels — MODIS 500 m pixels that physically straddle the watershed perimeter and receive a mixed inside/outside signal. These are not open-water contamination (NLCD class 11) or L-Range errors; they are a natural consequence of the boundary mixed-pixel effect. The pipeline's per-month IQR filter (`build_obs_et_bad_pixel_mask`) identifies and excludes these cells before computing the observational baseline.
+
+---
+
+### Note: LAI Facets → Summed
+
+L-Range LAI is output for 3 "facets" (plant functional groups) per cell:
+
+- **Facet 1**: Dominant component (~0.4–5.6 m²/m²), likely trees/shrubs
+- **Facet 2**: Minor component (~0–0.6), possibly herbaceous
+- **Facet 3**: Minor component (~0–1.5), possibly grass/ground cover
+
+I summed all 3 facets to get **total LAI** per cell per month.
+
+## File Structure
+
+```
+data_processing/climate_models/L-range/
+├── README.md
+├── process_delta_change.py    (main processing script)
+└── utils.py                   (helper functions for .asc I/O)
+
+data/L-range/
+├── GCM_future_historical/     (L-Range model output, one dir per GCM)
+│   ├── ACCESS_EMS1_5_SSP370/
+│   │   ├── et____1_{month}_{year}_avg_cells.asc
+│   │   └── lai___{facet}_{month}_{year}_avg_cells.asc
+│   ├── CMCC_EMS2_SSP370/
+│   ├── CNRM_CM6_1_SSP370/
+│   ├── INM_CM5_0_SSP370/
+│   └── IPSL_CM6A_LR_SSP370/
+├── MODIS_baseline_obs/        (observed MODIS data)
+│   ├── ET/
+│   │   └── et___YYYY_MM.asc   (180 files, 2006–2020)
+│   └── LAI/
+│       └── lai__YYYY_MM.asc   (180 files, 2006–2020)
+├── watershed-mask/
+│   └── watershed_mask.asc     (unified mask: 28,521 active cells; auto-generated)
+├── downscaled_output_ET/      (ET script outputs)
+│   ├── RESULTS_ANALYSIS.md    (auto-generated stats)
+│   ├── 01_seasonal_means/
+│   │   ├── obs_baseline/      (shared MODIS ET baseline grids)
+│   │   ├── ACCESS_EMS1_5_SSP370/
+│   │   └── ...                (one dir per GCM)
+│   ├── 02_change_factors/
+│   │   ├── ACCESS_EMS1_5_SSP370/
+│   │   └── ...
+│   └── 03_downscaled_future/
+│       ├── ACCESS_EMS1_5_SSP370/
+│       └── ...
+└── downscaled_output_LAI/     (LAI script outputs)
+    ├── RESULTS_ANALYSIS.md    (auto-generated stats)
+    ├── 01_seasonal_means/
+    │   ├── obs_baseline/      (shared MODIS LAI baseline grids)
+    │   ├── ACCESS_EMS1_5_SSP370/
+    │   └── ...                (one dir per GCM)
+    ├── 02_change_factors/
+    │   ├── ACCESS_EMS1_5_SSP370/
+    │   └── ...
+    └── 03_downscaled_future/
+        ├── ACCESS_EMS1_5_SSP370/
+        └── ...
+```

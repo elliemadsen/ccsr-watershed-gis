@@ -37,14 +37,17 @@ All data files (raw and processed), including rasters, shapefiles, CSVs, NetCDF,
 ```
 data/
 ├── CDL/                       # Cropland Data Layer
-├── climate_models/            # Climate model outputs
 ├── DEM/                       # Digital Elevation Models
+├── ET/                        # Evapotranspiration outputs (L-Range + MODIS)
+├── GCM/                       # GCM raw daily CSV data (historical + future)
 ├── hydrography/               # National Hydrography Database
+├── LAI/                       # Leaf Area Index outputs (L-Range + MODIS)
 ├── NLCD/                      # National Land Cover Database
-├── precipitation/             # Precipitation data
+├── precipitation/             # Precipitation data (GRIDMET observed + GCM projections)
 ├── runoff_coefficient/        # Runoff coefficient rasters
 ├── stream_proximity/          # Stream network and proximity data
 ├── sub-basins/                # Watershed boundary shapefiles
+├── temperature/               # Temperature data (GRIDMET observed + GCM projections)
 └── topographic_wetness_index/ # Topographic Wetness Index data
 
 ```
@@ -57,11 +60,13 @@ Python scripts, Jupyter notebooks, and code that processes or transforms data.
 
 ```
 data_processing/
-├── climate_models/
-│   ├── precip_prediction/     # Climate prediction pipeline scripts
-│   └── web-viz/               # Scripts for web viz data prep
-├── precipitation/             # GRIDMET data processing
-└── stream_proximity/          # Flow accumulation, stream network and proximity analysis
+├── L-range/                   # L-Range delta-change downscaling (ET & LAI)
+├── precipitation/             # Precipitation pipeline (GRIDMET + GCM delta-change)
+│   └── 0_process_gridmet/    # GRIDMET download + processing
+├── temperature/               # Temperature pipeline (GRIDMET + GCM delta-change)
+│   └── 0_process_gridmet/    # GRIDMET download + processing
+├── stream_proximity/          # Flow accumulation, stream network and proximity analysis
+└── visualization/             # Scripts for web viz data preparation
 
 ```
 
