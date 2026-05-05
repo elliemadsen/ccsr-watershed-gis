@@ -89,6 +89,12 @@ SEASONS = {
 NODATA = -9999.0
 ZERO_THRESHOLD = 1e-6   # treat values below this as zero for CF computation
 
+# Minimum historical ET value (cm/month, raw model units) below which the
+# change factor is forced to 1.0 (no change).  Avoids unstable ratios when
+# the historical baseline is dormant-season near-zero.
+# 0.20 cm/month = 2.0 mm/month — all five models are below this in DJF.
+ET_MIN_HIST_CM = 0.20
+
 
 # ===================================================================
 # ARGUMENT PARSING
@@ -374,12 +380,13 @@ def compute_seasonal_mean_obs(variable, season_name, years, mask, bad_pixel_mask
     return result, len(grids)
 
 
-def compute_change_factor(hist_grid, future_grid, mask):
+def compute_change_factor(hist_grid, future_grid, mask, min_hist=None):
     """
     Compute the multiplicative change factor: CF = future / historical.
 
     Within masked cells:
       - If both hist and future are ≈0: CF = 1.0 (no change)
+      - If min_hist is set and hist < min_hist: CF = 1.0 (unreliable baseline)
       - Otherwise: CF = future / hist
 
     Outside mask: CF = NODATA
@@ -393,9 +400,12 @@ def compute_change_factor(hist_grid, future_grid, mask):
     h = hist_grid[mask]
     f = future_grid[mask]
 
-    # Default: ratio
+    reliable = np.abs(h) > ZERO_THRESHOLD
+    if min_hist is not None:
+        reliable &= (h >= min_hist)
+
     with np.errstate(divide="ignore", invalid="ignore"):
-        ratio = np.where(np.abs(h) > ZERO_THRESHOLD, f / h, 1.0)
+        ratio = np.where(reliable, f / h, 1.0)
 
     cf[mask] = ratio
     return cf
@@ -647,7 +657,8 @@ def main():
 
                 # 3. Change factor
                 print("      Computing change factor (CF = future / historical)...")
-                cf = compute_change_factor(hist_mean, future_mean, mask)
+                min_hist = ET_MIN_HIST_CM if var == "et" else None
+                cf = compute_change_factor(hist_mean, future_mean, mask, min_hist=min_hist)
                 cf_vals  = cf[mask]
                 cf_valid = cf_vals[cf_vals != NODATA]
                 cf_min_v  = float(np.min(cf_valid))

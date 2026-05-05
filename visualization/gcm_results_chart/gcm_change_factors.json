@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "description": "Change factors (future vs. historical) for five GCM models across four seasons.",
+    "temp_unit": "K (delta change in mean daily max temperature)",
+    "precip_unit": "ratio (future / historical seasonal total)",
+    "et_unit": "ratio (future / historical), median across watershed pixels",
+    "lai_unit": "ratio (future / historical), median across watershed pixels",
+    "et_metric_rationale": "Median used for ET: DJF distributions are right-skewed (a small number of high-flux pixels inflate the mean), so median better represents the typical change across the watershed.",
+    "et_min_hist_threshold": "Change factors set to 1.0 where historical seasonal ET median < 0.20 cm/month (2.0 mm/month). All five models fall below this in DJF, so DJF ET CFs are 1.0 (no change applied — dormant-season baseline too small for a reliable ratio).",
+    "lai_metric_rationale": "Median used for LAI: zero-value pixels (water, impervious surfaces) create a floor that shifts the mean; median is more robust to those non-vegetated outliers."
+  },
+  "seasons": ["DJF", "MAM", "JJA", "SON"],
+  "models": [
+    {
+      "name": "ACCESS-ESM1-5",
+      "quadrant": "Hot-Wet",
+      "seasons": {
+        "DJF": { "temp": 0.88, "precip": 1.07, "et": 1.0, "lai": 0.8547 },
+        "MAM": { "temp": 2.73, "precip": 1.14, "et": 1.1678, "lai": 1.1417 },
+        "JJA": { "temp": 2.91, "precip": 1.0, "et": 1.0056, "lai": 1.0203 },
+        "SON": { "temp": 2.55, "precip": 1.13, "et": 1.1212, "lai": 0.9174 }
+      }
+    },
+    {
+      "name": "IPSL-CM6A-LR",
+      "quadrant": "Hot-Dry",
+      "seasons": {
+        "DJF": { "temp": 0.56, "precip": 1.1, "et": 1.0, "lai": 0.9506 },
+        "MAM": { "temp": 2.56, "precip": 1.02, "et": 1.1588, "lai": 1.2199 },
+        "JJA": { "temp": 1.87, "precip": 0.98, "et": 0.9931, "lai": 1.1219 },
+        "SON": { "temp": 2.67, "precip": 0.98, "et": 1.0319, "lai": 1.013 }
+      }
+    },
+    {
+      "name": "CMCC-ESM2",
+      "quadrant": "Warm-Wet",
+      "seasons": {
+        "DJF": { "temp": 1.7, "precip": 1.14, "et": 1.0, "lai": 0.9427 },
+        "MAM": { "temp": 1.84, "precip": 1.11, "et": 1.1594, "lai": 1.115 },
+        "JJA": { "temp": 1.19, "precip": 1.03, "et": 1.0311, "lai": 1.115 },
+        "SON": { "temp": 1.73, "precip": 0.97, "et": 1.0856, "lai": 1.0038 }
+      }
+    },
+    {
+      "name": "CNRM-CM6-1",
+      "quadrant": "Warm-Dry",
+      "seasons": {
+        "DJF": { "temp": 2.0, "precip": 1.07, "et": 1.0, "lai": 0.9253 },
+        "MAM": { "temp": 1.5, "precip": 1.03, "et": 1.0457, "lai": 1.0706 },
+        "JJA": { "temp": 1.95, "precip": 1.0, "et": 0.9953, "lai": 1.0589 },
+        "SON": { "temp": 1.74, "precip": 0.99, "et": 1.0611, "lai": 0.9885 }
+      }
+    },
+    {
+      "name": "INM-CM5-0",
+      "quadrant": "Median",
+      "seasons": {
+        "DJF": { "temp": 1.76, "precip": 1.05, "et": 1.0, "lai": 0.9505 },
+        "MAM": { "temp": 1.87, "precip": 1.02, "et": 1.246, "lai": 1.1101 },
+        "JJA": { "temp": 1.32, "precip": 1.07, "et": 1.0252, "lai": 1.0833 },
+        "SON": { "temp": 1.76, "precip": 1.0, "et": 1.1387, "lai": 1.0042 }
+      }
+    }
+  ]
+}

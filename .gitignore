@@ -1,5 +1,18 @@
 .DS_Store
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# GDAL/QGIS auxiliary sidecar files
+*.aux.xml
+*.tif.aux.xml
+*.tiff.aux.xml
+
+# VS Code
+.vscode/
+
 # Large GCM model output — not tracked in git
 data/L-range/GCM_future_historical/
 data/climate_models/old_baseline_dates/

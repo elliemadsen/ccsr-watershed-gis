@@ -469,10 +469,6 @@ function createTerrain() {
     
     // Update geometry with filtered indices
     geometry.setIndex(validIndices);
-    
-    console.log(`Terrain: ${width}x${height} (sampling 1 in ${samplingRate} pixels)`);
-    console.log(`Kept ${validIndices.length / 3} triangles out of ${indices.length / 3}`);
-    
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.computeVertexNormals();
     
@@ -874,17 +870,6 @@ function climateColorScale(normalized) {
     }
 }
 
-//  Category management functions
-function toggleCategory(categoryId) {
-    if (selectedCategories.has(categoryId)) {
-        selectedCategories.delete(categoryId);
-    } else {
-        selectedCategories.add(categoryId);
-    }
-    updateLegend();
-    updateTerrain();
-}
-
 // Update time display without month abbreviations
 function updateTimeDisplay() {
     const timeValue = document.getElementById('time-value');
@@ -916,6 +901,7 @@ function toggleCategory(categoryId) {
         selectedCategories.delete(categoryId);
     } else {
         selectedCategories.add(categoryId);
+        selectedCategories.delete('__none__'); // remove sentinel when a real category is selected
     }
     updateLegend();
     updateTerrain();
@@ -928,23 +914,6 @@ function selectAllCategories(dataType) {
 }
 
 function deselectAllCategories(dataType) {
-    // Get all categories for the current data type
-    if (dataType === 'nlcd' && nlcdData) {
-        for (let row of nlcdData.data) {
-            for (let val of row) {
-                if (val !== null) selectedCategories.add(val.toString());
-            }
-        }
-    } else if (dataType === 'cdl' && cdlData) {
-        for (let row of cdlData.data) {
-            for (let val of row) {
-                if (val !== null) selectedCategories.add(val.toString());
-            }
-        }
-    }
-    // Now everything except what we want is selected, so invert by clearing all
-    selectedCategories.clear();
-    // Add just one invalid category so nothing shows
     selectedCategories.add('__none__');
     updateLegend();
     updateTerrain();
@@ -1204,6 +1173,7 @@ function onWindowResize() {
 
 // Add current CDL/NLCD selection as a pinned overlay
 function addCurrentLayerToOverlays() {
+    console.log('[AddToMap] called. dataLayer:', dataLayer, '| cdlData:', !!cdlData, '| nlcdData:', !!nlcdData, '| selectedCategories:', selectedCategories.size, [...selectedCategories].slice(0,5));
     let sourceType, sourceData, sourceColormap, sourceClasses, sourceName;
     
     if (dataLayer === 'cdl' && cdlData) {
@@ -1219,12 +1189,14 @@ function addCurrentLayerToOverlays() {
         sourceClasses = nlcdClasses;
         sourceName = 'NLCD';
     } else {
+        console.warn('[AddToMap] Early return: dataLayer is', dataLayer, '— not cdl/nlcd, or data not loaded.');
         return; // Only CDL/NLCD supported
     }
     
     // Determine which categories are currently shown
     let pinnedCategories;
     if (selectedCategories.size === 0) {
+        console.log('[AddToMap] selectedCategories empty → pinning all categories');
         // All selected — gather all unique values
         pinnedCategories = new Set();
         for (let row of sourceData.data) {
@@ -1232,11 +1204,17 @@ function addCurrentLayerToOverlays() {
                 if (val !== null) pinnedCategories.add(val.toString());
             }
         }
-    } else if (selectedCategories.has('__none__')) {
+    } else if (selectedCategories.has('__none__') && selectedCategories.size === 1) {
+        console.warn('[AddToMap] Early return: selectedCategories has __none__ (nothing selected).');
         return; // Nothing selected
     } else {
-        pinnedCategories = new Set(selectedCategories);
+        pinnedCategories = new Set([...selectedCategories].filter(c => c !== '__none__'));
+        if (pinnedCategories.size === 0) {
+            console.warn('[AddToMap] Early return: no real categories after filtering __none__.');
+            return;
+        }
     }
+    console.log('[AddToMap] pinnedCategories size:', pinnedCategories.size);
     
     // Build friendly name from selected categories
     const catNames = [];
@@ -1260,9 +1238,15 @@ function addCurrentLayerToOverlays() {
     };
     
     overlayLayers.push(overlay);
+    console.log('[AddToMap] overlay pushed. overlayLayers.length now:', overlayLayers.length);
     updateOverlayPanel();
+    updateLegend();
     updateTerrain();
-    console.log('Added overlay:', layerName, 'with', pinnedCategories.size, 'categories');
+    // Scroll the overlay panel into view
+    const op = document.getElementById('overlay-panel');
+    console.log('[AddToMap] overlay-panel element:', op, '| display:', op && op.style.display);
+    if (op) op.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    console.log('[AddToMap] done. overlayLayers:', overlayLayers.map(o => o.name));
 }
 
 // Remove an overlay by id
@@ -1285,6 +1269,7 @@ function setOverlayOpacity(id, opacity) {
 function updateOverlayPanel() {
     const panel = document.getElementById('overlay-panel');
     const list = document.getElementById('overlay-list');
+    console.log('[OverlayPanel] overlayLayers.length:', overlayLayers.length, '| panel:', !!panel, '| list:', !!list);
     
     if (overlayLayers.length === 0) {
         panel.style.display = 'none';
@@ -1292,6 +1277,7 @@ function updateOverlayPanel() {
     }
     
     panel.style.display = 'block';
+    console.log('[OverlayPanel] set panel display to block');
     let html = '';
     
     for (const overlay of overlayLayers) {
