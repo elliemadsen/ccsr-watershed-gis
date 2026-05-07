@@ -31,6 +31,9 @@ ag_mask = datasets.read_tif('natag_mask.tif')
 
 watershed = watershed.Watershed()
 
+### 
+### Step 1: Define features to train on
+###
 class Feature:
     def __init__(self, name, train, monthly, train_cache, predict_djf=None, predict_mam=None, predict_jja=None, predict_son=None):
         self.name = name
@@ -98,14 +101,17 @@ pcp = Feature(
     [lambda:  datasets.read_gridmet(start_month, half_month), lambda: datasets.read_gridmet(half_month, end_month)],
     True,
     ["pcp_features.npy", "pcp_features2.npy"],
-    lambda: datasets.read_tif('../ccsr-watershed-gis/data/precipitation/processed/seasonal/precip_final_30m_2015-2025_djf.tif'),
-    lambda: datasets.read_tif('../ccsr-watershed-gis/data/precipitation/processed/seasonal/precip_final_30m_2015-2025_mam.tif'),
-    lambda: datasets.read_tif('../ccsr-watershed-gis/data/precipitation/processed/seasonal/precip_final_30m_2015-2025_jja.tif'),
-    lambda: datasets.read_tif('../ccsr-watershed-gis/data/precipitation/processed/seasonal/precip_final_30m_2015-2025_son.tif')
+    lambda: datasets.read_tif('../../data/precipitation/processed/seasonal/precip_final_30m_2015-2025_djf.tif'),
+    lambda: datasets.read_tif('../../data/precipitation/processed/seasonal/precip_final_30m_2015-2025_mam.tif'),
+    lambda: datasets.read_tif('../../data/precipitation/processed/seasonal/precip_final_30m_2015-2025_jja.tif'),
+    lambda: datasets.read_tif('../../data/precipitation/processed/seasonal/precip_final_30m_2015-2025_son.tif')
 )
 
 features_list = [dem, sand_percent, twi, lst, ndvi, pcp]
 
+### 
+### Step 2: Compute Features
+###
 def subgrids(grids, step_x=target_grid_size, step_y=target_grid_size):
     # Find min,max x,y across all grids
     # Grid x Bounds. Bounds: min_x, min_y, max_x, max_y
@@ -204,7 +210,7 @@ for feature in features_list:
     print(f'Feature shape is {feature_vals[-1].shape}')
 
 def create_random_forest(X, y, groups):
-    random_forest = RandomForestRegressor(n_estimators=100, random_state=0)
+    random_forest = RandomForestRegressor(n_estimators=200, random_state=0)
 
     logo = LeaveOneGroupOut()
     y_pred = cross_val_predict(
@@ -254,19 +260,12 @@ def build_X_y(grids, month_indices, total_features):
     return features, sm, group_vals # X, y, groups
 
 def plot_feature_importances(forest, X, y, title):
-    import pandas as pd
-    feature_names = [feature.name for feature in features_list]   
+    import pandas as pd 
     # std = np.std([tree.feature_importances_ for tree in forest.estimators_], axis=0)
 
     result = permutation_importance(forest, X, y, n_repeats=10, random_state=0)
 
-    forest_importances = pd.Series(result.importances_mean, index=feature_names)
-    fig, ax = plt.subplots()
-    forest_importances.plot.bar(yerr=result.importances_std, ax=ax)
-    ax.set_title(title)
-    ax.set_ylabel("Mean decrease in impurity")
-    fig.tight_layout()
-    plt.show()
+    return result
 
 
 def train_season(grids, month_indices, total_features, title, cache=None):
@@ -280,8 +279,8 @@ def train_season(grids, month_indices, total_features, title, cache=None):
         if cache is not None:
             joblib.dump(forest, cache)
 
-    plot_feature_importances(forest, features, sm, title)
-    return forest
+    importances = plot_feature_importances(forest, features, sm, title)
+    return forest, importances
 
 ###############################
 ####### Prediction ############
@@ -405,15 +404,40 @@ def predict_raster(forest, smap_x, smap_y, centers_x, centers_y, indices, data_l
     )
     raster_xr.rio.to_raster(file)
 
+### 
+### Step 3: Training
+###
 
 print("Training DJF")
-djf_forest = train_season(grids, np.where((months.astype(int) % 12 == 11) | (months.astype(int) % 12 == 0) | (months.astype(int) % 12 == 1)), feature_vals, "DJF", "forest_djf.joblib")
+djf_forest, djf_importance = train_season(grids, np.where((months.astype(int) % 12 == 11) | (months.astype(int) % 12 == 0) | (months.astype(int) % 12 == 1)), feature_vals, "DJF", "forest_djf.joblib")
 print("Training MAM")
-mam_forest = train_season(grids, np.where((months.astype(int) % 12 == 2) | (months.astype(int) % 12 == 3) | (months.astype(int) % 12 == 4)), feature_vals, "MAM", "forest_mam.joblib")
+mam_forest, mam_importance = train_season(grids, np.where((months.astype(int) % 12 == 2) | (months.astype(int) % 12 == 3) | (months.astype(int) % 12 == 4)), feature_vals, "MAM", "forest_mam.joblib")
 print("Training JJA")
-jja_forest = train_season(grids, np.where((months.astype(int) % 12 == 5) | (months.astype(int) % 12 == 6) | (months.astype(int) % 12 == 7)), feature_vals, "JJA", "forest_jja.joblib")
+jja_forest, jja_importance = train_season(grids, np.where((months.astype(int) % 12 == 5) | (months.astype(int) % 12 == 6) | (months.astype(int) % 12 == 7)), feature_vals, "JJA", "forest_jja.joblib")
 print("Training SON")
-son_forest = train_season(grids, np.where((months.astype(int) % 12 == 8) | (months.astype(int) % 12 == 9) | (months.astype(int) % 12 == 10)), feature_vals, "SON", "forest_son.joblib")
+son_forest, son_importance = train_season(grids, np.where((months.astype(int) % 12 == 8) | (months.astype(int) % 12 == 9) | (months.astype(int) % 12 == 10)), feature_vals, "SON", "forest_son.joblib")
+
+# Plot Feature Importances
+fig, ax = plt.subplots()
+feature_names = [feature.name for feature in features_list]  
+importances = [(djf_importance, "DJF"), (mam_importance, "MAM"), (jja_importance, "JJA"), (son_importance, "SON")]
+
+bottoms = np.zeros(6)
+
+feature_names = [feature.name for feature in features_list]  
+for importance, name in importances:
+    means = np.array(importance.importances_mean)
+    means = means / np.sum(means)
+    ax.bar(feature_names, means, label=name, bottom=bottoms)
+    bottoms += means
+ax.set_title("Feature Importances by Season")
+ax.legend(loc="upper left")
+ax.set_ylabel("Permutation Importance")
+plt.show()
+
+### 
+### Step 4: Prediction
+###
 
 def create_seasonal_predictions():
     smap_x, smap_y, centers_x, centers_y, indices = compute_grid_mask()

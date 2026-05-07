@@ -13,14 +13,39 @@ import shapely
 from rasterio.features import rasterize, geometry_mask
 
 watershed = watershed.Watershed()
-
-ignore_subbasins = [7,8]
-ignore_indices = [i-1 for i in ignore_subbasins]
  
 subbasins_x = watershed.get_lons()
 subbasins_y = watershed.get_lats()
-subbasins_num = subbasins_x.size - len(ignore_subbasins)
 
+ag_mask = datasets.read_tif('natag_mask.tif')
+
+np.random.seed(0)
+
+### 
+### Step 1: Isolate small subbasins
+###
+def find_small_subbasins(ws=watershed):
+    watershed_geometries = ws.get_geometries()
+    stats = rasterstats.zonal_stats(watershed_geometries, 'natag_mask.tif', nodata=0, stats=['count'])
+    counts = np.zeros_like(subbasins_x)
+    for i in range(len(stats)):
+        counts[i] = stats[i]['count']
+
+    q25, q75 = np.quantile(np.log(counts), [.25,.75])
+    iqr = q75-q25
+    low = q25 - 1.5*iqr
+
+    # Small indices are outliers on log scale.
+    small_indices = np.where(counts < np.exp(low))[0]
+    return small_indices
+
+ignore_indices = find_small_subbasins()
+print(f"Ignoring subbasins {[int(i + 1) for i in ignore_indices]} for clustering since they are too small")
+subbasins_num = subbasins_x.size - len(ignore_indices) # For training KMeans
+
+### 
+### Step 2: Compute features
+###
 def get_mean_std(data):
     return np.mean(data, axis=1), np.std(data, axis=1)
 
@@ -36,12 +61,15 @@ def fit(array, n_clusters=8):
     kmeans = KMeans(n_clusters=n_clusters, n_init=25, random_state=0).fit(array)
     return array, kmeans
 
-def fit_list(to_fit, n_clusters=8, weights=[]):
+def compute_features(to_fit, weights=None):
+    if weights is None:
+        weights = []
     params_size = 0
 
     is_empty = len(weights) == 0
+    expected_shape = to_fit[0].shape[0]
     for item in to_fit:
-        assert item.shape[0] == subbasins_num
+        assert item.shape[0] == expected_shape # Make sure they are all the same shape
         if len(item.shape) == 1:
             params_size += 1
         else:
@@ -49,7 +77,7 @@ def fit_list(to_fit, n_clusters=8, weights=[]):
         if is_empty:
             weights.append(1)
 
-    array = np.zeros((subbasins_num, params_size))
+    array = np.zeros((expected_shape, params_size))
     index_counter = 0
 
     assert len(to_fit) == len(weights)
@@ -69,27 +97,24 @@ def fit_list(to_fit, n_clusters=8, weights=[]):
             scaler = StandardScaler().fit(item.reshape(-1, 1))
             array[:,index_counter] = scaler.transform(item.reshape(-1, 1)).flatten() * weight
             index_counter += 1
+    return array
+
+def fit_list(to_fit, n_clusters=8, weights=None):
+    array = compute_features(to_fit, weights=weights)
     return fit(array, n_clusters)
 
-def pad_labels(kmeans, indices_to_insert, pad_value=np.nan):
+def pad_labels(kmeans, indices_to_insert, pad_values):
     labels = kmeans.labels_.tolist()
-    for i in range(len(indices_to_insert)):
-        index = indices_to_insert[i]
-        labels.insert(index, pad_value)
-
+    for index, val in zip(indices_to_insert, pad_values):
+        labels.insert(index, val)
     return np.array(labels)
 
-def plot_kmeans(kmeans, fig, ax, cmap = mpl.cm.jet):
-    padded_labels = pad_labels(kmeans, ignore_indices)
-    watershed.subbasins.plot(ax=ax, column=padded_labels, edgecolor="black",linewidth=0.4, legend=False, cmap=cmap)
-    n_clusters = np.max(kmeans.labels_) + 1
+def plot_kmeans(labels, fig, ax, cmap = mpl.cm.jet):
+    watershed.subbasins.plot(ax=ax, column=labels, edgecolor="black",linewidth=0.4, legend=False, cmap=cmap)
+    n_clusters = np.max(labels) + 1
     bounds = np.linspace(0, n_clusters, n_clusters + 1)
     norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
     fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax)
-
-from shapely.geometry import MultiPoint
-
-ag_mask = datasets.read_tif('natag_mask.tif')
 
 def create_dataset_mask(dataset, mask=ag_mask):
     lats = dataset.lats
@@ -108,16 +133,20 @@ def compute_mean_std(tif_path, ws=watershed, mask=True):
     watershed_geometries = ws.get_geometries()
     means = np.zeros_like(subbasins_x)
     stds = np.zeros_like(subbasins_x)
+    counts = np.zeros_like(subbasins_x)
 
     if mask:
         dataset = datasets.read_tif(tif_path)
         masked_data = create_dataset_mask(dataset)
-        stats = rasterstats.zonal_stats(watershed_geometries, masked_data, nodata=np.nan, stats=['mean', 'std'], affine=dataset.transform)
+        stats = rasterstats.zonal_stats(watershed_geometries, masked_data, nodata=np.nan, stats=['mean', 'std', 'count'], affine=dataset.transform)
     else:
-        stats = rasterstats.zonal_stats(watershed_geometries, tif_path, nodata=np.nan, stats=['mean', 'std'])
+        stats = rasterstats.zonal_stats(watershed_geometries, tif_path, nodata=np.nan, stats=['mean', 'std', 'count'])
     for i in range(len(stats)):
-            means[i] = stats[i]['mean']
-            stds[i] = stats[i]['std']
+        means[i] = stats[i]['mean']
+        stds[i] = stats[i]['std']
+        counts[i] = stats[i]['count']
+        # print(f'{i}:{stats[i]['count']}')
+
     return means, stds
 
 class ClusterInput():
@@ -126,6 +155,10 @@ class ClusterInput():
         self.mask = mask
         self.use_mean = use_mean
         self.use_std = use_std
+
+### 
+### Here is where we define our inputs
+###
 
 # These are already masked, so don't need to mask them.
 smap_djf = ClusterInput('smap_sm_constrained_30m_djf.tif', False)
@@ -138,7 +171,7 @@ pcp_mam = ClusterInput('../../data/precipitation/processed/seasonal/precip_final
 pcp_jja = ClusterInput('../../data/precipitation/processed/seasonal/precip_final_30m_2015-2025_jja.tif')
 pcp_son = ClusterInput('../../data/precipitation/processed/seasonal/precip_final_30m_2015-2025_son.tif')
 
-runoff_coef = ClusterInput('runoff_coefficient_C.tif', False)
+runoff_coef = ClusterInput('runoff_curve_number.tif', False)
 
 stream_distance = ClusterInput('../../data/stream_proximity/stream_distance/stream_distance_25ha.tif')
 restrict_depth = ClusterInput('depth_restrictive_30m.tif')
@@ -151,6 +184,9 @@ cluster_inputs = [
     runoff_coef, stream_distance, restrict_depth, twi
 ]
 
+### 
+### Step 3: Clustering
+###
 # Higher is better
 def kmeans_silhouette_coefficient(array, kmeans):
     from sklearn import metrics
@@ -191,7 +227,9 @@ def gap_stat(array, k):
     gap = log_ref_mean - np.log(original_inertia)
     return gap, std_error
 
-def plot_clusters(list_to_fit, weights=[]):
+def plot_clusters(list_to_fit, weights=None):
+    if weights is None:
+        weights = []
     n_clusters = [i for i in range(2,9)]
     inertias = []
     silhouette_scores = []
@@ -236,16 +274,7 @@ def mean_over_indices(indices, data):
     data_sub = np.squeeze(data[:, indices])
     return np.mean(data_sub, axis=1), np.std(data_sub, axis=1)
 
-def plot_2_clusters(kmeans1, title1, kmeans2, title2):
-    fig, ax = plt.subplots(2)
-
-    plot_kmeans(kmeans1, fig, ax[0])
-    ax[0].set_title(title1)
-    plot_kmeans(kmeans2, fig, ax[1])
-    ax[1].set_title(title2)
-    plt.show()
-
-def perform_clustering(input_clusters, ignore_indices, plot=False):
+def perform_clustering(input_clusters, ignore_indices, plot_metrics=True, plot=True):
     list_to_fit = []
     for input_cluster in input_clusters:
         computed_mean, computed_std = compute_mean_std(input_cluster.path, mask=input_cluster.mask)
@@ -254,41 +283,52 @@ def perform_clustering(input_clusters, ignore_indices, plot=False):
         if input_cluster.use_std:
             list_to_fit.append(computed_std)
 
+    ignored_list = [arr[ignore_indices] for arr in list_to_fit]
     list_to_fit_excluded = [np.delete(arr, ignore_indices) for arr in list_to_fit]
 
     # For each input data, remove the indices that should be removed
-    # weights = [1,1,1,1, 1,1,1,1, 4, 4, 4, 2, 2]
+    weights = [1,1,1,1, 1,1,1,1, 4, 4, 4, 2, 2]
 
-    if plot:
+    if plot_metrics:
         plot_clusters(list_to_fit_excluded)
         # plot_clusters(list_to_fit_excluded, weights)
 
     # Re-fit
-    _, kmeans11 = fit_list(list_to_fit_excluded, 5)
-    _, kmeans12 = fit_list(list_to_fit_excluded, 7)
+    _, kmeans = fit_list(list_to_fit_excluded, 6)
+    # _, kmeans = fit_list(list_to_fit_excluded, 7)
     # plot_2_clusters(kmeans11, "5 Clusters", kmeans12, "7 Clusters")
 
-    # fig, ax = plt.subplots()
-    # plot_kmeans(kmeans11, fig, ax)
-    # plt.show()
 
-    return kmeans11
     # Re-fit
-    # _, kmeans21 = fit_list(list_to_fit_excluded, 3, weights)
-    # _, kmeans22 = fit_list(list_to_fit_excluded, 7, weights)
+    # _, kmeans = fit_list(list_to_fit_excluded, 5, weights)
+    # _, kmeans = fit_list(list_to_fit_excluded, 7, weights)
     # plot_2_clusters(kmeans21, "3 Clusters", kmeans22, "7 Clusters")
 
-kmeans = perform_clustering(cluster_inputs, ignore_indices)
+    # After fitting, compute labels for ignored subbasins
+    features = compute_features(ignored_list)
+    new_labels = kmeans.predict(features)
+    labels = pad_labels(kmeans, ignore_indices, new_labels)
 
-def write_shapefile(kmeans, indices_to_insert, file):
-    labels = kmeans.labels_
-    padded_labels = pad_labels(kmeans, ignore_indices, -1)
-    watershed.subbasins["clusters"] = padded_labels
+    if plot:
+        fig, ax = plt.subplots()
+        plot_kmeans(labels, fig, ax)
+        plt.show()
+
+    return kmeans, labels
+
+kmeans, labels = perform_clustering(cluster_inputs, ignore_indices)
+
+### 
+### Step 4: Compute profiles
+###
+def write_shapefile(labels, indices_to_insert, file):
+    watershed.subbasins["clusters"] = labels
     watershed.subbasins.to_file(file)
-# write_shapefile(kmeans, ignore_indices, 'watershed_clusters.shp')
 
-def compute_cluster_profiles(cluster_inputs, kmeans, ignore_indices):
-    padded_labels = pad_labels(kmeans, ignore_indices, -1)
+num_clusters = np.max(labels) + 1
+write_shapefile(labels, ignore_indices, f'watershed_clusters{num_clusters}.shp')
+
+def compute_cluster_profiles(cluster_inputs, labels, ignore_indices):
     watershed_geometries = watershed.get_geometries()
 
     def cluster_mask_raster(raster_path, plot=False):
@@ -296,7 +336,7 @@ def compute_cluster_profiles(cluster_inputs, kmeans, ignore_indices):
 
         mask = np.full(raster.shape, np.nan)
         
-        for geom, label in zip(watershed_geometries, padded_labels):
+        for geom, label in zip(watershed_geometries, labels):
             # Create a mask for this geometry
             if label >= 0:
                 indices = geometry_mask(
@@ -315,7 +355,10 @@ def compute_cluster_profiles(cluster_inputs, kmeans, ignore_indices):
 
         return raster, mask
 
-    print(kmeans.cluster_centers_)
+    num_clusters = np.max(labels) + 1
+    profiles = np.zeros((num_clusters, len(cluster_inputs) * 2 + 11)) # Mean/Std of cluster inputs + CDL categories
+    profile_i = 0
+
     for cluster_input in cluster_inputs:
         raster, mask = cluster_mask_raster(cluster_input.path)
         max_val = int(np.nanmax(mask))
@@ -332,8 +375,11 @@ def compute_cluster_profiles(cluster_inputs, kmeans, ignore_indices):
             pixel_mean = np.nanmean(region_mask * masked_data)
             pixel_std = np.nanstd(region_mask * masked_data)
 
+            profiles[i, 2 * profile_i] = pixel_mean
+            profiles[i, 2 * profile_i + 1] = pixel_std
             print(f'Input {cluster_input.path}, Cluster {i+1}, Mean: {pixel_mean}, Std: {pixel_std}')
         print()
+        profile_i += 1
     
     # Find percentages of each CDL classification as well
     raster, mask = cluster_mask_raster('cdl_2023_classified.tif')
@@ -372,7 +418,15 @@ def compute_cluster_profiles(cluster_inputs, kmeans, ignore_indices):
         counts = counts / np.sum(counts) * 100
 
         for v, c in zip(values, counts):
+            profiles[i, 2 * profile_i + int(v) - 1] = c
             print(f'CDL {cdl_vals[v]}, Cluster {i+1}, Percent: {c}')
         print()
+    
+    header = 'SMAP DJF Mean, SMAP DJF Std, SMAP MAM Mean, SMAP MAM Std, SMAP JJA Mean, SMAP JJA Std, SMAP SON Mean, SMAP SON Std, '
+    header += 'PCP DJF Mean, PCP DJF Std, PCP MAM Mean, PCP MAM Std, PCP JJA Mean, PCP JJA Std, PCP SON Mean, PCP SON Std, '
+    header += 'Runoff Mean, Runoff Std, Steam Distance Mean, Stream Distance Std, Depth to Restrictive Layer Mean, Depth to Restrictive Layer Std, '
+    header += 'TWI Mean, TWI Std, Forest %, Wetlands %, Shrubland %, Pasture/Grassland %, Hay %, Idle %, Corn %, Soybeans %, Double Crop %, Rye %, Alfalfa %'
 
-compute_cluster_profiles(cluster_inputs, kmeans, ignore_indices)
+    np.savetxt(f'cluster_profiles{num_clusters}.csv', profiles, fmt='%.5f', delimiter=',', header=header)
+
+compute_cluster_profiles(cluster_inputs, labels, ignore_indices)
