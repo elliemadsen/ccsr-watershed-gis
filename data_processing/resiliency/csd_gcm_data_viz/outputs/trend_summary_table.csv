@@ -1,0 +1,41 @@
+model,description,metric,period,start,end,n,tau,p,significant,trend
+ACCESS,hot/wet,TAC,Full record,1994-12,2060-12,67,0.117,0.667,False,no trend
+ACCESS,hot/wet,TAC,Before 2009-12,1994-12,2009-12,15,-0.771,0.003,True,decreasing
+ACCESS,hot/wet,TAC,2009-12 – 2033-12,2009-12,2033-12,24,0.638,0.012,True,increasing
+ACCESS,hot/wet,TAC,From 2033-12,2033-12,2060-12,28,-0.249,0.097,False,no trend
+ACCESS,hot/wet,Var,Full record,1994-12,2060-12,67,0.243,0.432,False,no trend
+ACCESS,hot/wet,Var,Before 2015-12,1994-12,2015-12,21,-0.619,0.002,True,decreasing
+ACCESS,hot/wet,Var,2015-12 – 2034-12,2015-12,2034-12,19,0.895,0.001,True,increasing
+ACCESS,hot/wet,Var,From 2034-12,2034-12,2060-12,27,-0.293,0.053,False,no trend
+CMCC,warm/wet,TAC,Full record,1994-12,2060-12,67,0.312,0.244,False,no trend
+CMCC,warm/wet,TAC,Before 2011-12,1994-12,2011-12,17,-0.824,0.001,True,decreasing
+CMCC,warm/wet,TAC,2011-12 – 2052-12,2011-12,2052-12,41,0.412,0.015,True,increasing
+CMCC,warm/wet,TAC,From 2052-12,2052-12,2060-12,9,-1.0,0.001,True,decreasing
+CMCC,warm/wet,Var,Full record,1994-12,2060-12,67,0.082,0.839,False,no trend
+CMCC,warm/wet,Var,Before 2011-12,1994-12,2011-12,17,-0.971,0.001,True,decreasing
+CMCC,warm/wet,Var,2011-12 – 2023-12,2011-12,2023-12,12,-0.212,0.472,False,no trend
+CMCC,warm/wet,Var,From 2023-12,2023-12,2060-12,38,0.644,0.026,True,increasing
+CNRM,warm/dry,TAC,Full record,1994-12,2060-12,67,0.118,0.722,False,no trend
+CNRM,warm/dry,TAC,Before 2016-12,1994-12,2016-12,22,-0.472,0.176,False,no trend
+CNRM,warm/dry,TAC,2016-12 – 2047-12,2016-12,2047-12,31,0.725,0.001,True,increasing
+CNRM,warm/dry,TAC,From 2047-12,2047-12,2060-12,14,0.319,0.465,False,no trend
+CNRM,warm/dry,Var,Full record,1994-12,2060-12,67,0.064,0.903,False,no trend
+CNRM,warm/dry,Var,Before 2019-12,1994-12,2019-12,25,-0.693,0.004,True,decreasing
+CNRM,warm/dry,Var,2019-12 – 2048-12,2019-12,2048-12,29,0.438,0.205,False,no trend
+CNRM,warm/dry,Var,From 2048-12,2048-12,2060-12,13,0.641,0.013,True,increasing
+IPSL,hot/dry,TAC,Full record,1994-12,2060-12,67,0.035,0.869,False,no trend
+IPSL,hot/dry,TAC,Before 2025-12,1994-12,2025-12,31,-0.48,0.138,False,no trend
+IPSL,hot/dry,TAC,2025-12 – 2054-12,2025-12,2054-12,29,-0.778,0.001,True,decreasing
+IPSL,hot/dry,TAC,From 2054-12,2054-12,2060-12,7,0.048,1.0,False,no trend
+IPSL,hot/dry,Var,Full record,1994-12,2060-12,67,0.159,0.489,False,no trend
+IPSL,hot/dry,Var,Before 2004-12,1994-12,2004-12,10,-0.867,0.001,True,decreasing
+IPSL,hot/dry,Var,2004-12 – 2024-12,2004-12,2024-12,20,-0.6,0.002,True,decreasing
+IPSL,hot/dry,Var,From 2024-12,2024-12,2060-12,37,-0.408,0.24,False,no trend
+INM,median,TAC,Full record,1994-12,2060-12,67,-0.15,0.464,False,no trend
+INM,median,TAC,Before 2007-12,1994-12,2007-12,13,0.769,0.001,True,increasing
+INM,median,TAC,2007-12 – 2028-12,2007-12,2028-12,21,-0.752,0.001,True,decreasing
+INM,median,TAC,From 2028-12,2028-12,2060-12,33,-0.5,0.108,False,no trend
+INM,median,Var,Full record,1994-12,2060-12,67,-0.215,0.314,False,no trend
+INM,median,Var,Before 2007-12,1994-12,2007-12,13,0.692,0.003,True,increasing
+INM,median,Var,2007-12 – 2023-12,2007-12,2023-12,16,-0.917,0.001,True,decreasing
+INM,median,Var,From 2023-12,2023-12,2060-12,38,-0.189,0.69,False,no trend
