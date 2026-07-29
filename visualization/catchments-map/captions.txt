@@ -1,0 +1,7 @@
+catchments_ET_regression.png
+-----------------------------
+(a) The ten water-supply catchments analyzed in this study, spanning the northeastern United States, each shaded by its present-period β_VPD (darker = higher; scale below map). Each catchment boundary is labeled by name, with a dashed line connecting it to the city it supplies. (b) Present-period (2001–2020) trend coefficients (β) for four drivers of catchment-scale evapotranspiration — vapor pressure deficit (β_VPD), soil moisture (β_SM), incoming radiation (β_Rg), and leaf area index (β_LAI) — for each catchment, in raw (unnormalized) units on a shared axis; see variables.txt for full variable definitions.
+
+catchments_properties.png
+--------------------------
+(a) The ten water-supply catchments analyzed in this study, spanning the northeastern United States. Each catchment boundary is labeled by name, with a dashed line connecting it to the city it supplies. (b) Growing-season (2001–2020) mean physical/climate characteristics for each catchment: vapor pressure deficit (kPa), air temperature (°C), and surface soil moisture. Each metric is plotted on its own axis in its native units (not normalized) so absolute differences between catchments remain interpretable.

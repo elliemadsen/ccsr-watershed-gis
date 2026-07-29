@@ -1,0 +1,80 @@
+All figures in this directory use a 10-year sliding window stepped annually
+(win10y_step12), climatology-anomaly detrending, a manually-set 2000-01
+changepoint, and n=1000 phase-surrogate resamples for significance testing,
+on VODCA CX+Ku for the ten water-supply catchments (vod-all).
+
+vod-all_win10y_step12_climatology_split200001_nsurr1000.png
+-------------------------------------------------------------
+Grid of one column per catchment x one row per requested metric (AC-1,
+Variance), each panel showing that catchment's sliding-window time series
+with the 2000-01 changepoint marked as a vertical dashed line.
+
+multisite_ac1_var_win10y_step12_climatology_split200001_nsurr1000.png
+-------------------------------------------------------------------------
+(a) AC-1 and (b) normalized variance time series for all ten catchments
+overlaid on one shared axis per metric, each catchment colored by its fixed
+per-catchment magma color and the 2000-01 changepoint marked per catchment.
+The primary multi-catchment comparison figure.
+
+ac1_grid_win10y_step12_climatology_split200001_nsurr1000.png
+------------------------------------------------------------
+5x2 grid, one panel per catchment, of the AC-1 (lag-1 autocorrelation)
+sliding-window time series. All lines share one fixed color (matching the
+AC-1 line in ac1_var_grid) since catchment identity is already given by each
+panel's title.
+
+ac1_var_grid_win10y_step12_climatology_split200001_nsurr1000.png
+------------------------------------------------------------------
+5x2 grid, one panel per catchment, overlaying AC-1 (left axis) and
+normalized variance (right axis) on twin y-axes. Variance is normalized by
+each catchment's full-record residual standard deviation so it is
+comparable in dimensionless units across catchments with different native
+scales; AC-1 needs no such normalization since it is already a scale-free
+ratio (a lag-1 autocorrelation/AR(1) coefficient) by construction — rescaling
+the input leaves it unchanged.
+
+ac1_changepoint_grid_win10y_step12_climatology_split200001_nsurr1000.png
+----------------------------------------------------------------------------
+5x2 grid of AC-1 time series per catchment. The 2000-01 changepoint is
+marked with a dashed vertical line, and the background is shaded red where
+the pre- or post-split segment trend is significantly increasing (phase-
+surrogate test, p<0.05), blue where significantly decreasing. Six catchments
+show a significant increasing trend post-2000: (a) Hinckley, NY (τ=+0.75,
+p=0.00), (b) Cannonsville, NY (τ=+0.59, p=0.02), (c) Sebago, ME (τ=+0.76,
+p=0.00), (e) Scituate, RI (τ=+0.68, p=0.02), (h) Quabbin, MA (τ=+0.96,
+p=0.00), and (j) Massabesic, NH (τ=+0.79, p=0.00). Seven catchments show a
+significant decreasing trend pre-2000: (a) Hinckley, NY (τ=-0.86, p=0.01),
+(b) Cannonsville, NY (τ=-0.86, p=0.01), (d) Alcove, NY (τ=-0.79, p=0.02),
+(g) Barkhamsted, CT (τ=-0.79, p=0.02), (h) Quabbin, MA (τ=-0.93, p=0.00),
+(i) Wachusett, MA (τ=-0.79, p=0.02), and (j) Massabesic, NH (τ=-0.79,
+p=0.01).
+
+var_changepoint_grid_win10y_step12_climatology_split200001_nsurr1000.png
+----------------------------------------------------------------------------
+Same as ac1_changepoint_grid, but for normalized variance instead of AC-1;
+lines retain the per-catchment magma color coding.
+
+pre_post_arrows_vod_win10y_step12_climatology_split200001_nsurr1000.png
+---------------------------------------------------------------------------
+Dot-and-arrow chart, one row per catchment: a dot at the pre-2000 Kendall
+tau (AC-1), a dot at the post-2000 tau, and an arrow connecting them (pre =
+dark purple, post = orange). A dot is filled if that segment's trend is
+significant (phase-surrogate p<0.05), open otherwise; the connecting arrow
+is solid only when both endpoints are significant, dotted/faded otherwise.
+Background shading marks decreasing (tau<0) vs. increasing (tau>0)
+autocorrelation.
+
+pre_post_scatter_win10y_step12_climatology_split200001_nsurr1000.png
+-------------------------------------------------------------------------
+Scatter of each catchment's pre-2000 Kendall tau (AC-1, x-axis) against its
+post-2000 tau (y-axis). The upper-left quadrant (dec -> inc) is the regime-
+shift signature: decreasing autocorrelation pre-2000, increasing after.
+Marker fill indicates whether the post-2000 trend is significant under the
+phase-surrogate test; each catchment's label is colored to match its fixed
+palette color.
+
+pre_post_combined_win10y_step12_climatology_split200001_nsurr1000.png
+-------------------------------------------------------------------------
+(a) The pre/post-2000 regime-shift scatter (same as pre_post_scatter) next
+to (b) the per-catchment pre/post dot-and-arrow chart (same as
+pre_post_arrows_vod), combined side by side for direct comparison.

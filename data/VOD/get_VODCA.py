@@ -11,7 +11,7 @@ ckxu = ee.ImageCollection("projects/sat-io/open-datasets/VODCA/CKXU_BAND_V2")
 # Catchment bounding boxes [W, S, E, N]
 LOCATIONS = {
     "Hinckley_NY":   ee.Geometry.Rectangle([-75.53, 42.78, -74.26, 43.89]), # Hinckley Reservoir (Utica)
-    "Catskills_NY":  ee.Geometry.Rectangle([-75.54, 41.56, -74.17, 42.62]), # Catskills (New York City)
+    "Cannonsville_NY":  ee.Geometry.Rectangle([-75.54, 41.56, -74.17, 42.62]), # Cannonsville Reservoir (New York City water supply)
     "Sebago_ME":     ee.Geometry.Rectangle([-71.13, 43.35, -69.95, 44.64]), # Sebago Lake (Portland)
     "Alcove_NY":     ee.Geometry.Rectangle([-74.60, 41.85, -73.60, 42.83]), # Alcove Reservoir (Albany)
     "Scituate_RI":   ee.Geometry.Rectangle([-72.14, 40.90, -71.11, 42.16]), # Scituate Reservoir (Providence)

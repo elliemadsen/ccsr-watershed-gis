@@ -11,8 +11,9 @@ Datasets:
   LAI_GIMMS   — GIMMS LAI3g monthly rasters, 1982–2011
   LAI_spliced — GIMMS LAI3g (1982–2005) concatenated with MODIS (2006–2020), no bias correction
   VOD         — VODCA daily CSV, Cannonsville NY, 1987–2021 (resampled to monthly means)
-  vod-all     — all VOD_SITES water-supply catchments (Cannonsville, Hinckley, Catskills,
-                Sebago, Alcove, Scituate, Hemlock, Barkhamsted, Quabbin, Wachusett, Massabesic)
+  vod-all     — all VOD_SITES water-supply catchments except VOD's legacy alias
+                (Hinckley, Cannonsville, Sebago, Alcove, Scituate, Hemlock, Barkhamsted,
+                Quabbin, Wachusett, Massabesic); output nested under output/VOD_all/
   Biomass_GCM  — L-Range total aboveground live biomass (talb), monthly rasters, 1990–2065
   LAI_1_GCM    — L-Range LAI, herbs layer, monthly rasters, 1990–2065
   LAI_2_GCM    — L-Range LAI, shrubs layer, monthly rasters, 1990–2065
@@ -101,13 +102,13 @@ REPO_ROOT     = Path(__file__).parents[3]
 LAI_DIR       = REPO_ROOT / "data" / "L-Range" / "MODIS_baseline_obs" / "LAI"
 GIMMS_LAI_DIR = REPO_ROOT / "data" / "LAI" / "raw_data" / "processed_monthly"
 VOD_DIR   = REPO_ROOT / "data" / "VOD"
-VOD_CSV   = VOD_DIR / "VODCA_CXKu_Cannonsville.csv"  # backward-compat alias
+VOD_CSV   = VOD_DIR / "VODCA_CXKu_Cannonsville_NY.csv"  # backward-compat alias
 
 # All VOD water-supply catchments: dataset key → CSV path
 VOD_SITES = {
-    "VOD":            VOD_DIR / "VODCA_CXKu_Cannonsville.csv",   # Cannonsville, NY
+    "VOD":            VOD_DIR / "VODCA_CXKu_Cannonsville_NY.csv",   # Cannonsville, NY
     "Hinckley_NY":    VOD_DIR / "VODCA_CXKu_Hinckley_NY.csv",    # Hinckley Reservoir (Utica)
-    "Catskills_NY":   VOD_DIR / "VODCA_CXKu_Catskills_NY.csv",   # Catskills (New York City)
+    "Cannonsville_NY":   VOD_DIR / "VODCA_CXKu_Cannonsville_NY.csv",   # Cannonsville Reservoir (New York City water supply)
     "Sebago_ME":      VOD_DIR / "VODCA_CXKu_Sebago_ME.csv",      # Sebago Lake (Portland)
     "Alcove_NY":      VOD_DIR / "VODCA_CXKu_Alcove_NY.csv",      # Alcove Reservoir (Albany)
     "Scituate_RI":    VOD_DIR / "VODCA_CXKu_Scituate_RI.csv",    # Scituate Reservoir (Providence)
@@ -123,6 +124,18 @@ VOD_SITE_LABELS: dict[str, str] = {
     "VOD": "Cannonsville",
 }
 
+
+def display_site(site: str) -> str:
+    """Human-readable site name for plot titles/labels: explicit overrides in
+    VOD_SITE_LABELS take priority, otherwise "City_ST" keys are reformatted
+    as "City, ST" rather than shown with the raw underscore."""
+    if site in VOD_SITE_LABELS:
+        return VOD_SITE_LABELS[site]
+    if "_" in site:
+        city, state = site.rsplit("_", 1)
+        return f"{city}, {state}"
+    return site
+
 # Site colors sampled from the magma colormap (evenly spaced, avoiding near-black and near-white ends)
 _magma = plt.cm.magma
 VOD_SITE_COLORS = {
@@ -131,6 +144,12 @@ VOD_SITE_COLORS = {
         np.linspace(0.15, 0.88, len(VOD_SITES)),
     )
 }
+# Pre-/post-2000 colors shared by plot_tac_changepoint_bars (arrows chart) and
+# plot_tac_pre_post_scatter (regime-shift scatter) — dark purple / dark
+# orange-red, sampled from magma.
+PRE_POST_PRE_COLOR  = _magma(0.25)  # dark purple
+PRE_POST_POST_COLOR = _magma(0.68)  # dark orange-red
+
 LRANGE_ALL_DIR = REPO_ROOT / "data" / "L-Range"
 OUT_DIR   = Path(__file__).parent / "output"
 
@@ -155,7 +174,7 @@ CLIM_PERIODS = {
     # VOD sites — full VODCA record for all
     "VOD":            (1987, 2021),
     "Hinckley_NY":    (1987, 2021),
-    "Catskills_NY":   (1987, 2021),
+    "Cannonsville_NY":   (1987, 2021),
     "Sebago_ME":      (1987, 2021),
     "Alcove_NY":      (1987, 2021),
     "Scituate_RI":    (1987, 2021),
@@ -1272,8 +1291,8 @@ def plot_results(
         "ACCESS": "#1f77b4", "CMCC": "#ff7f0e", "CNRM": "#2ca02c", "INM": "#d62728", "IPSL": "#9467bd",
         "mean": "black",
     }
-    ylabels  = {"TAC": "AR(1) coefficient", "Var": "Normalized variance"}
-    titles   = {"TAC": "Lag-1 TAC", "Var": "Variance"}
+    ylabels  = {"TAC": "AC-1", "Var": "Normalized variance"}
+    titles   = {"TAC": "AC-1", "Var": "Variance"}
 
     for col_i, dataset in enumerate(datasets):
         label_dfs = results[dataset]
@@ -1387,42 +1406,6 @@ def plot_results(
 # Multi-site VOD plots (for paper figures)
 # ---------------------------------------------------------------------------
 
-def plot_raw_vod(
-    raw_series: dict[str, pd.Series],
-    out_path: Path,
-) -> None:
-    """
-    Small-multiples grid of raw monthly VOD for every site in `raw_series`.
-    One panel per site, stacked vertically, with a shared x-axis. Useful as
-    a data-quality / spatial-context figure showing coverage gaps, absolute
-    VOD levels, and seasonal cycles across catchments.
-    """
-    sites = list(raw_series.keys())
-    n = len(sites)
-    fig, axes = plt.subplots(n, 1, figsize=(12, 2.2 * n), sharex=True)
-    if n == 1:
-        axes = [axes]
-
-    for idx, (ax, site) in enumerate(zip(axes, sites)):
-        color = VOD_SITE_COLORS.get(site, "steelblue")
-        label = VOD_SITE_LABELS.get(site, site)
-        s = raw_series[site]
-        ax.axvspan(pd.Timestamp("2000-01-01"), pd.Timestamp("2006-01-01"),
-                   color="grey", alpha=0.08, zorder=0, lw=0)
-        ax.plot(s.index, s.values, color=color, linewidth=0.9, alpha=0.85)
-        ax.set_ylabel(label, rotation=0, labelpad=90, va="center")
-        ax.grid(True, linestyle="--", alpha=0.35)
-        ax.text(0.01, 0.97, chr(ord('a') + idx), transform=ax.transAxes,
-                fontsize=11, fontweight='bold', va='top', ha='left')
-
-    axes[-1].set_xlabel("Date")
-    fig.suptitle("Raw monthly VOD (VODCA CX+Ku) by catchment", fontsize=9, y=1.01)
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=300, bbox_inches="tight")
-    print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
-    plt.close(fig)
-
-
 def plot_vod_multisite(
     results: dict[str, dict[str, pd.DataFrame]],
     analyses: list[str],
@@ -1440,19 +1423,17 @@ def plot_vod_multisite(
     if n_rows == 1:
         axes = [axes]
 
-    ylabels = {"TAC": "AR(1) coefficient", "Var": "Normalized variance"}
-    titles  = {"TAC": "Lag-1 TAC", "Var": "Variance"}
+    ylabels = {"TAC": "AC-1", "Var": "Normalized variance"}
+    titles  = {"TAC": "AC-1", "Var": "Variance"}
 
     for row_i, metric in enumerate(analyses):
         ax = axes[row_i]
-        ax.axvspan(pd.Timestamp("2000-01-01"), pd.Timestamp("2006-01-01"),
-                   color="grey", alpha=0.08, zorder=0, lw=0)
         for site, label_dfs in results.items():
             df = next(iter(label_dfs.values()))
             if metric not in df.columns:
                 continue
             color = VOD_SITE_COLORS.get(site, "gray")
-            display = VOD_SITE_LABELS.get(site, site)
+            display = display_site(site)
             ax.plot(df.index, df[metric], color=color, linewidth=1.6,
                     marker="o", markersize=3, label=display, alpha=0.85)
 
@@ -1467,69 +1448,13 @@ def plot_vod_multisite(
         ax.set_title(titles.get(metric, metric))
         ax.grid(True, linestyle="--", alpha=0.4)
         ax.legend(ncol=3, loc="best")
-        ax.text(0.01, 0.97, chr(ord('a') + row_i), transform=ax.transAxes,
+        # Panel letter outside the axes, not inside the plot area.
+        ax.text(-0.02, 1.15, chr(ord('a') + row_i), transform=ax.transAxes,
                 fontsize=11, fontweight='bold', va='top', ha='left')
 
     axes[-1].set_xlabel("Centre date")
-    fig.suptitle("CSD indicators — all VOD catchments", fontsize=9)
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=300, bbox_inches="tight")
-    print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
-    plt.close(fig)
-
-
-def plot_significance_heatmap(
-    results: dict[str, dict[str, pd.DataFrame]],
-    analyses: list[str],
-    out_path: Path,
-    n_surrogates: int,
-) -> None:
-    """
-    Heatmap of Kendall τ across sites (rows) × metrics (columns).
-    Cell color encodes τ (diverging RdBu_r: blue = decreasing, red = increasing).
-    Cell text shows τ and p; asterisk marks p < 0.05. Gives a compact,
-    paper-ready summary of which catchments show significant CSD trends.
-    """
-    sites = list(results.keys())
-    n_sites = len(sites)
-    n_metrics = len(analyses)
-
-    tau_mat = np.full((n_sites, n_metrics), np.nan)
-    p_mat   = np.full((n_sites, n_metrics), np.nan)
-
-    for si, site in enumerate(sites):
-        df = next(iter(results[site].values()))
-        for mi, metric in enumerate(analyses):
-            if metric not in df.columns:
-                continue
-            r = phase_surrogate_test(df[metric], n_surrogates=n_surrogates)
-            tau_mat[si, mi] = r["tau"]
-            p_mat[si, mi]   = r["p"]
-
-    vmax = np.nanmax(np.abs(tau_mat)) if not np.all(np.isnan(tau_mat)) else 1.0
-    fig, ax = plt.subplots(figsize=(max(4, 2.5 * n_metrics), max(4, 0.55 * n_sites + 1.5)))
-    im = ax.imshow(tau_mat, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
-
-    ax.set_xticks(range(n_metrics))
-    ax.set_xticklabels(analyses)
-    ax.set_yticks(range(n_sites))
-    ax.set_yticklabels([VOD_SITE_LABELS.get(s, s) for s in sites])
-    ax.set_title("Kendall τ by catchment and metric\n(phase-surrogate p; * p < 0.05)")
-
-    for si in range(n_sites):
-        for mi in range(n_metrics):
-            tau = tau_mat[si, mi]
-            p   = p_mat[si, mi]
-            if np.isnan(tau):
-                ax.text(mi, si, "—", ha="center", va="center")
-            else:
-                sig = "*" if (not np.isnan(p) and p < 0.05) else ""
-                ax.text(mi, si, f"τ={tau:+.2f}\np={p:.2f}{sig}",
-                        ha="center", va="center",
-                        color="white" if abs(tau) > 0.5 * vmax else "black")
-
-    plt.colorbar(im, ax=ax, label="Kendall τ", shrink=0.7)
-    fig.tight_layout()
+    fig.suptitle("CSD indicators — all VOD catchments", fontsize=9, y=0.995)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
     plt.close(fig)
@@ -1540,24 +1465,22 @@ def plot_vod_tac_grid(
     out_path: Path,
 ) -> None:
     """
-    5-row × 2-column grid of TAC time series, one panel per water-supply
+    5-row × 2-column grid of AC-1 time series, one panel per water-supply
     catchment (the 10 non-Cannonsville VOD sites). Intended as a compact
     per-site panel figure for a paper supplement or results section.
-    2000–2006 is shaded grey as a regime-shift reference period.
     """
     grid_sites = [s for s in VOD_SITES if s != "VOD"]  # 10 sites, preserves insertion order
     nrows, ncols = 5, 2
+    # Same color for every site (matching the AC-1 line in plot_vod_tac_var_grid)
+    # rather than per-site magma colors — site identity is already in the title.
+    color = plt.get_cmap("magma")(0.25)
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(11, 3.5 * nrows), sharex=True, sharey=False)
     axes_flat = axes.flatten()
 
     for i, site in enumerate(grid_sites):
         ax = axes_flat[i]
-        color = VOD_SITE_COLORS.get(site, "steelblue")
-        display = VOD_SITE_LABELS.get(site, site)
-
-        ax.axvspan(pd.Timestamp("2000-01-01"), pd.Timestamp("2006-01-01"),
-                   color="grey", alpha=0.08, zorder=0, lw=0)
+        display = display_site(site)
 
         if site in results and "TAC" in next(iter(results[site].values())).columns:
             df = next(iter(results[site].values()))
@@ -1565,9 +1488,10 @@ def plot_vod_tac_grid(
                     marker="o", markersize=3.5, alpha=0.9)
 
         ax.set_title(display, pad=3)
-        ax.set_ylabel("AR(1) coeff.")
+        ax.set_ylabel("AC-1")
         ax.grid(True, linestyle="--", alpha=0.35)
-        ax.text(0.01, 0.97, chr(ord('a') + i), transform=ax.transAxes,
+        # Panel letter outside the axes, not inside the plot area.
+        ax.text(-0.02, 1.10, chr(ord('a') + i), transform=ax.transAxes,
                 fontsize=11, fontweight='bold', va='top', ha='left')
 
     for ax in axes_flat[len(grid_sites):]:
@@ -1576,8 +1500,74 @@ def plot_vod_tac_grid(
     for ax in axes[-1]:
         ax.set_xlabel("Centre date")
 
-    fig.suptitle("Lag-1 TAC by catchment (VOD, VODCA CX+Ku)", fontsize=9)
-    fig.tight_layout()
+    fig.suptitle("AC-1 by catchment (VOD, VODCA CX+Ku)", fontsize=9, y=0.978)
+    fig.tight_layout(rect=(0, 0, 1, 0.965))
+    fig.savefig(out_path, dpi=300, bbox_inches="tight")
+    print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
+    plt.close(fig)
+
+
+def plot_vod_tac_var_grid(
+    results: dict[str, dict[str, pd.DataFrame]],
+    out_path: Path,
+) -> None:
+    """
+    Same 5-row x 2-column per-catchment grid as plot_vod_tac_grid, but each
+    panel overlays TAC and Variance together on twin y-axes instead of
+    showing TAC alone — TAC on the left axis, Variance on the right axis,
+    each axis's label and tick labels colored to match its line (magma
+    colormap) so the two metrics stay visually distinguishable without a
+    legend. Since color now encodes the metric rather than the site, this
+    trades away the per-site color coding used elsewhere (e.g. VOD_SITE_COLORS).
+    """
+    _magma = plt.get_cmap("magma")
+    TAC_COLOR = _magma(0.25)  # dark purple
+    VAR_COLOR = _magma(0.65)  # darker orange
+
+    grid_sites = [s for s in VOD_SITES if s != "VOD"]  # 10 sites, preserves insertion order
+    nrows, ncols = 5, 2
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(11, 3.5 * nrows), sharex=True, sharey=False)
+    axes_flat = axes.flatten()
+
+    for i, site in enumerate(grid_sites):
+        ax = axes_flat[i]
+        display = display_site(site)
+
+        df = next(iter(results[site].values())) if site in results else None
+
+        if df is not None and "TAC" in df.columns:
+            ax.plot(df.index, df["TAC"], color=TAC_COLOR, linewidth=1.5,
+                    marker="o", markersize=3.5, alpha=0.9)
+        ax.set_ylabel("AC-1", color=TAC_COLOR)
+        ax.tick_params(axis="y", labelcolor=TAC_COLOR)
+
+        ax_var = ax.twinx()
+        if df is not None and "Var" in df.columns:
+            ax_var.plot(df.index, df["Var"], color=VAR_COLOR, linewidth=1.5,
+                        linestyle="--", marker="s", markersize=3.5, alpha=0.9)
+        ax_var.set_ylabel("Normalized variance", color=VAR_COLOR)
+        ax_var.tick_params(axis="y", labelcolor=VAR_COLOR)
+        ax_var.grid(False)
+
+        ax.set_title(display, pad=3)
+        ax.grid(True, linestyle="--", alpha=0.35)
+        # Date labels on every panel, not just the bottom row (sharex=True
+        # hides them by default on interior rows).
+        ax.tick_params(axis="x", labelbottom=True)
+        # Panel letter outside the axes (above, left of the title) rather
+        # than inside the plot area.
+        ax.text(-0.02, 1.05, chr(ord('a') + i), transform=ax.transAxes,
+                fontsize=11, fontweight='bold', va='top', ha='left')
+
+    for ax in axes_flat[len(grid_sites):]:
+        ax.set_visible(False)
+
+    for ax in axes[-1]:
+        ax.set_xlabel("Centre date")
+
+    fig.suptitle("AC-1 and Variance by catchment (VOD, VODCA CX+Ku)", fontsize=9, y=0.978)
+    fig.tight_layout(rect=(0, 0, 1, 0.965))
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
     plt.close(fig)
@@ -1588,27 +1578,32 @@ def plot_vod_split_grid(
     metric: str,
     out_path: Path,
     all_changepoints: dict[str, dict[str, dict[str, list[pd.Timestamp]]]],
-    n_surrogates: int = 500,
+    n_surrogates: int = 1000,
+    nrows: int = 5,
+    ncols: int = 2,
 ) -> None:
     """
-    5×2 grid of one CSD metric for the 10 water-supply catchments.
+    Grid (nrows x ncols, default 5x2) of one CSD metric for the 10
+    water-supply catchments.
     Background: light red = post-split trend significantly increasing (p<0.05,
-    analytical Kendall tau); light blue = significantly decreasing.
+    phase-surrogate test); light blue = significantly decreasing.
     Per-segment τ and p annotations inside each panel.
     """
-    from scipy.stats import kendalltau as _ktu
     grid_sites = [s for s in VOD_SITES if s != "VOD"]
-    nrows, ncols = 5, 2
-    ylabels = {"TAC": "AR(1) coeff.", "Var": "Norm. variance"}
+    ylabels = {"TAC": "AC-1", "Var": "Norm. variance"}
+    # AC-1 uses one fixed color (matching plot_vod_tac_var_grid's AC-1 line)
+    # rather than per-site magma colors, since site identity is already in
+    # the title; Var keeps the per-site coloring.
+    tac_color = plt.get_cmap("magma")(0.25)
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(11, 3.8 * nrows),
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5.5 * ncols, 3.8 * nrows),
                              sharex=False, sharey=False)
     axes_flat = axes.flatten()
 
     for i, site in enumerate(grid_sites):
         ax = axes_flat[i]
-        color = VOD_SITE_COLORS.get(site, "steelblue")
-        display = VOD_SITE_LABELS.get(site, site)
+        color = tac_color if metric == "TAC" else VOD_SITE_COLORS.get(site, "steelblue")
+        display = display_site(site)
 
         if site not in results:
             ax.set_visible(False)
@@ -1625,20 +1620,26 @@ def plot_vod_split_grid(
         x_min = df.index.min()
         x_max = df.index.max()
 
+        # One phase-surrogate test per segment, reused below for both the
+        # background shading and the per-panel annotation text.
+        segs = (
+            [("pre", series[series.index < cps[0]], x_min, cps[0]),
+             ("post", series[series.index >= cps[0]], cps[0], x_max)]
+            if cps else [("full", series, x_min, x_max)]
+        )
+        seg_results = []
+        for seg_name, seg, lo, hi in segs:
+            v = seg.dropna()
+            res = phase_surrogate_test(v, n_surrogates=n_surrogates) if len(v) >= 4 else None
+            seg_results.append((seg_name, res, lo, hi))
+
         # Per-segment background shading: axvspan only covers that segment
-        if cps:
-            pre = series[series.index < cps[0]].dropna()
-            post = series[series.index >= cps[0]].dropna()
-            if len(pre) >= 4:
-                tau_pre, p_pre = _ktu(np.arange(len(pre)), pre.values)
-                if p_pre < 0.05:
-                    c_pre = "#ffe8e8" if tau_pre > 0 else "#e8eeff"
-                    ax.axvspan(x_min, cps[0], color=c_pre, alpha=0.45, zorder=0, lw=0)
-            if len(post) >= 4:
-                tau_post, p_post = _ktu(np.arange(len(post)), post.values)
-                if p_post < 0.05:
-                    c_post = "#ffe8e8" if tau_post > 0 else "#e8eeff"
-                    ax.axvspan(cps[0], x_max, color=c_post, alpha=0.45, zorder=0, lw=0)
+        for seg_name, res, lo, hi in seg_results:
+            if res is None or np.isnan(res["tau"]):
+                continue
+            if res["p"] < 0.05:
+                c = "#ffe8e8" if res["tau"] > 0 else "#e8eeff"
+                ax.axvspan(lo, hi, color=c, alpha=0.45, zorder=0, lw=0)
 
         # Changepoint line(s)
         for cp in cps:
@@ -1656,103 +1657,31 @@ def plot_vod_split_grid(
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
         ax.tick_params(axis="x", rotation=90)
 
-        # Panel letter
-        ax.text(0.01, 0.97, chr(ord('a') + i), transform=ax.transAxes,
+        # Panel letter, outside the axes rather than inside the plot area.
+        ax.text(-0.02, 1.10, chr(ord('a') + i), transform=ax.transAxes,
                 fontsize=11, fontweight='bold', va='top', ha='left')
 
-        # Segment significance annotation
-        segs = (
-            [("pre", series[series.index < cps[0]]),
-             ("post", series[series.index >= cps[0]])]
-            if cps else [("full", series)]
-        )
+        # Segment significance annotation (reuses seg_results from above)
         parts = []
-        for seg_name, seg in segs:
-            v = seg.dropna()
-            if len(v) < 4:
+        for seg_name, res, _, _ in seg_results:
+            if res is None:
                 parts.append(f"{seg_name}: n<4")
             else:
-                tau, p = _ktu(np.arange(len(v)), v.values)
-                parts.append(f"{seg_name}: τ={tau:+.2f} p={p:.2f}{'*' if p < 0.05 else ''}")
+                parts.append(f"{seg_name}: τ={res['tau']:+.2f} p={res['p']:.2f}{'*' if res['p'] < 0.05 else ''}")
         ax.annotate(
             "   ".join(parts),
-            xy=(0.02, 0.04), xycoords="axes fraction", va="bottom",
+            xy=(0.98, 0.04), xycoords="axes fraction", va="bottom", ha="right",
             bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.65, lw=0),
         )
 
     for ax in axes_flat[len(grid_sites):]:
         ax.set_visible(False)
 
-    title = {"TAC": "Lag-1 TAC", "Var": "Variance"}.get(metric, metric)
+    title = {"TAC": "AC-1", "Var": "Variance"}.get(metric, metric)
     fig.suptitle(f"{title} by catchment — changepoint 2000-01\n"
-                 "background: red = sig. increasing post-split, blue = sig. decreasing  (analytical p<0.05)",
-                 fontsize=9)
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=300, bbox_inches="tight")
-    print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
-    plt.close(fig)
-
-
-def plot_tac_heatmap(
-    results: dict[str, dict[str, pd.DataFrame]],
-    out_path: Path,
-    metric: str = "TAC",
-) -> None:
-    """
-    Sites × window-centre-date heatmap of a CSD metric.
-    Diverging colormap (blue = low/decreasing, red = high/increasing) reveals
-    when the regime shift occurred at each site simultaneously.
-    """
-    grid_sites = [s for s in VOD_SITES if s != "VOD"]
-    all_dates = sorted({
-        d
-        for site in grid_sites if site in results
-        for d in next(iter(results[site].values())).index
-    })
-    if not all_dates:
-        return
-
-    date_idx = {d: i for i, d in enumerate(all_dates)}
-    mat = np.full((len(grid_sites), len(all_dates)), np.nan)
-    for si, site in enumerate(grid_sites):
-        if site not in results:
-            continue
-        df = next(iter(results[site].values()))
-        if metric not in df.columns:
-            continue
-        for d, val in df[metric].items():
-            if d in date_idx:
-                mat[si, date_idx[d]] = val
-
-    vmax = float(np.nanpercentile(np.abs(mat[~np.isnan(mat)]), 95)) if not np.all(np.isnan(mat)) else 1.0
-    fig, ax = plt.subplots(figsize=(13, 0.52 * len(grid_sites) + 1.8))
-    im = ax.imshow(mat, aspect="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax,
-                   interpolation="nearest")
-
-    seen_years: set[int] = set()
-    year_ticks = []
-    for i, d in enumerate(all_dates):
-        if d.year not in seen_years:
-            year_ticks.append(i)
-            seen_years.add(d.year)
-    ax.set_xticks(year_ticks)
-    ax.set_xticklabels([all_dates[i].strftime("%Y") for i in year_ticks], rotation=90)
-    ax.set_yticks(range(len(grid_sites)))
-    ax.set_yticklabels([VOD_SITE_LABELS.get(s, s) for s in grid_sites])
-
-    cp = pd.Timestamp("2000-01-01")
-    if cp in date_idx:
-        ax.axvline(date_idx[cp] - 0.5, color="black", linewidth=1.5, linestyle="--",
-                   alpha=0.8, label="2000-01")
-        ax.legend(loc="upper left")
-
-    plt.colorbar(im, ax=ax, label={"TAC": "AR(1) coeff.", "Var": "Norm. variance"}.get(metric, metric),
-                 shrink=0.7)
-    title = {"TAC": "Lag-1 TAC", "Var": "Variance"}.get(metric, metric)
-    ax.set_title(f"{title} across catchments and time (VODCA CX+Ku)\n"
-                 "blue = low / decreasing resilience loss,  red = high / increasing resilience loss")
-    ax.set_xlabel("Window centre date")
-    fig.tight_layout()
+                 "background: red = sig. increasing post-split, blue = sig. decreasing  (phase-surrogate p<0.05)",
+                 fontsize=9, y=0.978)
+    fig.tight_layout(rect=(0, 0, 1, 0.965))
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
     plt.close(fig)
@@ -1760,36 +1689,51 @@ def plot_tac_heatmap(
 
 def plot_tac_changepoint_bars(
     results: dict[str, dict[str, pd.DataFrame]],
-    out_path: Path,
+    out_path: Optional[Path],
     all_changepoints: dict[str, dict[str, dict[str, list[pd.Timestamp]]]],
     metric: str = "TAC",
+    n_surrogates: int = 1000,
+    ax: Optional["plt.Axes"] = None,
 ) -> None:
     """
-    Horizontal bar chart of Kendall τ for pre-split and post-split periods.
-    Pre-2000: steel blue; post-2000: coral. Full opacity = p<0.05; faded = not
-    significant. Dotted vertical lines mark the approximate p=0.05 critical τ
-    for the median segment length (normal approximation to Kendall distribution).
+    Dot-and-arrow chart of Kendall τ for pre-split and post-split periods:
+    a dot at the pre-2000 τ, a dot at the post-2000 τ, and an arrow from one
+    to the other. Colors sampled from magma (pre = dark purple, post =
+    orange). A dot is filled if that segment is significant (phase-surrogate
+    p<0.05); open otherwise. The connecting arrow is solid only if BOTH
+    endpoints are significant, dotted/faded otherwise, since the transition
+    is only as trustworthy as its shakier endpoint.
+
+    Background is lightly tinted magma-purple for τ<0 (decreasing
+    autocorrelation) and magma-orange for τ>0 (increasing autocorrelation),
+    labeled across the top.
+
+    (No critical-τ threshold lines: those were a normal-approximation formula
+    that only applies to the analytical Kendall test's null distribution —
+    phase-surrogate null distributions are resampled per-series and don't
+    reduce to one closed-form threshold shared across sites.)
+
+    Pass `ax` to draw onto an existing axes as part of a larger figure (the
+    caller is then responsible for saving); omit it (the default) to create
+    and save a standalone figure at `out_path`, as before.
     """
-    from scipy.stats import kendalltau as _ktu
-    from scipy.stats import norm as _norm
+    from matplotlib.lines import Line2D
+
+    PRE_COLOR  = PRE_POST_PRE_COLOR
+    POST_COLOR = PRE_POST_POST_COLOR
 
     grid_sites = [s for s in VOD_SITES if s != "VOD"]
-    PRE_COLOR  = "#4393c3"  # steel blue
-    POST_COLOR = "#d6604d"  # coral-red
-
     pre_tau, post_tau, pre_sig, post_sig = [], [], [], []
-    pre_ns, post_ns = [], []
 
     for site in grid_sites:
         if site not in results:
-            for lst in (pre_tau, post_tau, pre_sig, post_sig, pre_ns, post_ns):
-                lst.append(np.nan if lst in (pre_tau, post_tau) else False if lst in (pre_sig, post_sig) else 0)
+            pre_tau.append(np.nan); post_tau.append(np.nan)
+            pre_sig.append(False);  post_sig.append(False)
             continue
         df = next(iter(results[site].values()))
         if metric not in df.columns:
             pre_tau.append(np.nan); post_tau.append(np.nan)
             pre_sig.append(False);  post_sig.append(False)
-            pre_ns.append(0);       post_ns.append(0)
             continue
         series = df[metric]
         site_label = next(iter(results[site]))
@@ -1797,83 +1741,121 @@ def plot_tac_changepoint_bars(
         if not cps:
             pre_tau.append(np.nan); post_tau.append(np.nan)
             pre_sig.append(False);  post_sig.append(False)
-            pre_ns.append(0);       post_ns.append(0)
             continue
-        for seg, tau_list, sig_list, n_list in [
-            (series[series.index < cps[0]].dropna(),  pre_tau,  pre_sig,  pre_ns),
-            (series[series.index >= cps[0]].dropna(), post_tau, post_sig, post_ns),
+        for seg, tau_list, sig_list in [
+            (series[series.index < cps[0]].dropna(),  pre_tau,  pre_sig),
+            (series[series.index >= cps[0]].dropna(), post_tau, post_sig),
         ]:
             if len(seg) >= 4:
-                t, p = _ktu(np.arange(len(seg)), seg.values)
-                tau_list.append(float(t)); sig_list.append(p < 0.05); n_list.append(len(seg))
+                res = phase_surrogate_test(seg, n_surrogates=n_surrogates)
+                tau_list.append(res["tau"]); sig_list.append(res["p"] < 0.05)
             else:
-                tau_list.append(np.nan); sig_list.append(False); n_list.append(0)
-
-    # Critical τ for p=0.05 (two-sided) via normal approx: τ_crit = z * sqrt(2(2n+5)/(9n(n-1)))
-    def _tau_crit(n: float) -> float:
-        if n < 4:
-            return np.nan
-        return float(_norm.ppf(0.975) * np.sqrt(2 * (2 * n + 5) / (9 * n * (n - 1))))
-
-    med_pre_n  = float(np.nanmedian([n for n in pre_ns  if n > 0]))
-    med_post_n = float(np.nanmedian([n for n in post_ns if n > 0]))
-    crit_pre  = _tau_crit(med_pre_n)
-    crit_post = _tau_crit(med_post_n)
+                tau_list.append(np.nan); sig_list.append(False)
 
     y = np.arange(len(grid_sites))
-    bar_h = 0.35
-    fig, ax = plt.subplots(figsize=(7.5, 0.65 * len(grid_sites) + 1.8))
+    xlim = (-1.0, 1.0)
+    standalone = ax is None
+    if standalone:
+        fig, ax = plt.subplots(figsize=(7.5, 0.55 * len(grid_sites) + 1.8))
+    else:
+        fig = ax.figure
+    ax.set_xlim(xlim)
+    ax.set_ylim(y.min() - 0.6, y.max() + 0.6)
+
+    # Background halves + top labels — same red/blue as the changepoint grid
+    # (plot_vod_split_grid): light red = increasing, light blue = decreasing.
+    ax.axvspan(xlim[0], 0, color="#e8eeff", alpha=0.45, zorder=0, lw=0)
+    ax.axvspan(0, xlim[1], color="#ffe8e8", alpha=0.45, zorder=0, lw=0)
+    ax.text(0.25, 0.985, "Decreasing autocorrelation", transform=ax.transAxes,
+            ha="center", va="top", fontsize=8,
+            bbox=dict(fc="white", alpha=0.6, lw=0, pad=2))
+    ax.text(0.75, 0.985, "Increasing autocorrelation", transform=ax.transAxes,
+            ha="center", va="top", fontsize=8,
+            bbox=dict(fc="white", alpha=0.6, lw=0, pad=2))
 
     for i in range(len(grid_sites)):
-        if not np.isnan(pre_tau[i]):
-            ax.barh(y[i] + bar_h / 2, pre_tau[i], height=bar_h,
-                    color=PRE_COLOR, alpha=0.85 if pre_sig[i] else 0.28,
-                    edgecolor="none", label="pre-2000" if i == 0 else "")
-        if not np.isnan(post_tau[i]):
-            ax.barh(y[i] - bar_h / 2, post_tau[i], height=bar_h,
-                    color=POST_COLOR, alpha=0.85 if post_sig[i] else 0.28,
-                    edgecolor="none", label="post-2000" if i == 0 else "")
+        if np.isnan(pre_tau[i]) or np.isnan(post_tau[i]):
+            continue
+        both_sig = pre_sig[i] and post_sig[i]
+        ax.annotate(
+            "", xy=(post_tau[i], y[i]), xytext=(pre_tau[i], y[i]),
+            zorder=3,
+            arrowprops=dict(
+                arrowstyle="-|>", color="black",
+                alpha=0.75 if both_sig else 0.30,
+                linestyle="solid" if both_sig else "dotted",
+                linewidth=1.3, shrinkA=6, shrinkB=6,
+            ),
+        )
+        ax.scatter(pre_tau[i], y[i], s=70, zorder=4,
+                   facecolor=PRE_COLOR if pre_sig[i] else "none",
+                   edgecolor=PRE_COLOR, linewidth=1.5,
+                   alpha=1.0 if pre_sig[i] else 0.6)
+        ax.scatter(post_tau[i], y[i], s=70, zorder=4,
+                   facecolor=POST_COLOR if post_sig[i] else "none",
+                   edgecolor=POST_COLOR, linewidth=1.5,
+                   alpha=1.0 if post_sig[i] else 0.6)
 
-    ax.axvline(0, color="black", linewidth=0.8, alpha=0.6)
+    ax.axvline(0, color="black", linewidth=0.8, alpha=0.6, zorder=1)
 
-    # Significance threshold lines
-    if not np.isnan(crit_pre):
-        ax.axvline( crit_pre, color=PRE_COLOR,  linewidth=1.0, linestyle=":", alpha=0.7,
-                    label=f"pre p=0.05 (n≈{int(med_pre_n)})")
-        ax.axvline(-crit_pre, color=PRE_COLOR,  linewidth=1.0, linestyle=":", alpha=0.7)
-    if not np.isnan(crit_post):
-        ax.axvline( crit_post, color=POST_COLOR, linewidth=1.0, linestyle=":", alpha=0.7,
-                    label=f"post p=0.05 (n≈{int(med_post_n)})")
-        ax.axvline(-crit_post, color=POST_COLOR, linewidth=1.0, linestyle=":", alpha=0.7)
-
+    metric_display = {"TAC": "AC-1", "Var": "Var"}.get(metric, metric)
     ax.set_yticks(y)
-    ax.set_yticklabels([VOD_SITE_LABELS.get(s, s) for s in grid_sites])
-    ax.set_xlabel(f"Kendall τ ({metric})")
-    ax.set_title(f"Pre- vs post-2000 {metric} trend by catchment\n"
-                 "faded = not significant (analytical p≥0.05); dotted lines = p=0.05 threshold")
-    ax.legend(loc="lower right")
-    ax.grid(True, axis="x", linestyle="--", alpha=0.35)
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=300, bbox_inches="tight")
-    print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
-    plt.close(fig)
+    ax.set_yticklabels([display_site(s) for s in grid_sites])
+    ax.set_xlabel(f"Kendall τ ({metric_display})")
+
+    # 2x2 grid: dot legend (pre-/post-2000) on row 1, line legend
+    # (significant/not) on row 2 — matplotlib's default legend layout fills
+    # row-major, so listing dots then lines with ncol=2 puts them there.
+    # Plain lines (no arrowhead marker) — just the solid-vs-dotted distinction.
+    legend_els = [
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=PRE_COLOR,
+               markeredgecolor=PRE_COLOR, markersize=9, label="pre-2000"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=POST_COLOR,
+               markeredgecolor=POST_COLOR, markersize=9, label="post-2000"),
+        Line2D([0, 1], [0, 0], color="black", alpha=0.75, linestyle="solid",
+               linewidth=1.3, label="Significant trend both pre- and post-2000"),
+        Line2D([0, 1], [0, 0], color="black", alpha=0.30, linestyle="dotted",
+               linewidth=1.3, label="Not significant pre- and/or post-2000"),
+    ]
+    # Below the plot rather than "lower right" — that corner overlapped the
+    # bottom row's dots.
+    ax.legend(handles=legend_els, loc="upper center", bbox_to_anchor=(0.5, -0.12),
+              ncol=2, frameon=False)
+    ax.grid(True, axis="x", linestyle="--", alpha=0.35, zorder=0)
+    if standalone:
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=300, bbox_inches="tight")
+        print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
+        plt.close(fig)
 
 
 def plot_tac_pre_post_scatter(
     results: dict[str, dict[str, pd.DataFrame]],
-    out_path: Path,
+    out_path: Optional[Path],
     all_changepoints: dict[str, dict[str, dict[str, list[pd.Timestamp]]]],
     metric: str = "TAC",
+    n_surrogates: int = 1000,
+    ax: Optional["plt.Axes"] = None,
 ) -> None:
     """
     Scatter: pre-split Kendall τ (x) vs post-split Kendall τ (y) per catchment.
     Upper-left quadrant = shifted from decreasing to increasing TAC after 2000.
-    Filled markers = post-split p < 0.05 (analytical).
+    Filled markers = post-split p < 0.05 (phase-surrogate test — see
+    phase_surrogate_test(), consistent with the rest of the script's
+    significance testing on these autocorrelated sliding-window series).
+
+    Pass `ax` to draw onto an existing axes as part of a larger figure (the
+    caller is then responsible for saving); omit it (the default) to create
+    and save a standalone figure at `out_path`, as before.
     """
     from scipy.stats import kendalltau as _ktu
     grid_sites = [s for s in VOD_SITES if s != "VOD"]
 
-    fig, ax = plt.subplots(figsize=(6, 5.5))
+    standalone = ax is None
+    if standalone:
+        fig, ax = plt.subplots(figsize=(6, 5.5))
+    else:
+        fig = ax.figure
 
     pts: list[tuple] = []
     for site in grid_sites:
@@ -1892,11 +1874,13 @@ def plot_tac_pre_post_scatter(
         if len(pre) < 4 or len(post) < 4:
             continue
         pre_tau, _ = _ktu(np.arange(len(pre)), pre.values)
-        post_tau, post_p = _ktu(np.arange(len(post)), post.values)
+        post_result = phase_surrogate_test(post, n_surrogates=n_surrogates)
+        post_tau, post_p = post_result["tau"], post_result["p"]
         pts.append((site, float(pre_tau), float(post_tau), post_p < 0.05))
 
     if not pts:
-        plt.close(fig)
+        if standalone:
+            plt.close(fig)
         return
 
     xs = [p[1] for p in pts]; ys = [p[2] for p in pts]
@@ -1904,51 +1888,117 @@ def plot_tac_pre_post_scatter(
     ylim = (-1.0, 1.0)
     ax.set_xlim(xlim); ax.set_ylim(ylim)
 
-    # Quadrant text labels
-    qpad = 0.04
-    ax.text(xlim[0] + qpad, ylim[1] - qpad, "dec → inc\n(regime shift)",
-            ha="left", va="top", color="#b03030",
+    # Quadrant text labels, near the plot's center (just inside each
+    # quadrant's edge closest to the origin) rather than at the quadrant's
+    # own center — that landed on top of the data points, which cluster
+    # toward the +/-1 extremes, not the middle. Mathtext "$\rightarrow$"
+    # renders a proper arrow glyph regardless of font.family (Helvetica has
+    # no glyph for the plain unicode "→" and rendered it as a box; mathtext
+    # bypasses that by using matplotlib's own math font).
+    qpad_center = 0.15
+    ax.text(-qpad_center, qpad_center, r"dec $\rightarrow$ inc",
+            ha="center", va="center", color="grey",
             bbox=dict(fc="white", alpha=0.6, lw=0, pad=2))
-    ax.text(xlim[1] - qpad, ylim[1] - qpad, "inc → inc",
-            ha="right", va="top", color="#555",
+    ax.text(qpad_center, qpad_center, r"inc $\rightarrow$ inc",
+            ha="center", va="center", color="grey",
             bbox=dict(fc="white", alpha=0.6, lw=0, pad=2))
-    ax.text(xlim[0] + qpad, ylim[0] + qpad, "dec → dec",
-            ha="left", va="bottom", color="#555",
+    ax.text(-qpad_center, -qpad_center, r"dec $\rightarrow$ dec",
+            ha="center", va="center", color="grey",
             bbox=dict(fc="white", alpha=0.6, lw=0, pad=2))
-    ax.text(xlim[1] - qpad, ylim[0] + qpad, "inc → dec",
-            ha="right", va="bottom", color="#3050b0",
+    ax.text(qpad_center, -qpad_center, r"inc $\rightarrow$ dec",
+            ha="center", va="center", color="grey",
             bbox=dict(fc="white", alpha=0.6, lw=0, pad=2))
 
     ax.axhline(0, color="black", linewidth=0.8, alpha=0.6, zorder=1)
     ax.axvline(0, color="black", linewidth=0.8, alpha=0.6, zorder=1)
 
-    for site, xt, yt, sig in pts:
-        c = VOD_SITE_COLORS.get(site, "gray")
-        display = VOD_SITE_LABELS.get(site, site)
-        if sig:
-            ax.scatter(xt, yt, s=110, color=c, zorder=4)
-        else:
-            ax.scatter(xt, yt, s=110, facecolors="none", edgecolors=c, linewidths=2.0, zorder=4)
-        ax.annotate(display, (xt, yt), textcoords="offset points",
-                    xytext=(7, 4), color=c, zorder=5)
+    # Nearby labels (e.g. Massabesic/Hinckley, Barkhamsted/Wachusett) land on
+    # top of each other since text is placed at a fixed offset from each
+    # dot. A small vertical-only repulsion — nudge labels whose dots are
+    # close in both x and y apart in y — declutters those without moving
+    # labels far from their dot.
+    text_y = {site: yt for site, _, yt, _ in pts}
+    min_sep, x_thresh = 0.06, 0.2
+    for _ in range(50):
+        moved = False
+        for site_i, xi, _, _ in pts:
+            for site_j, xj, _, _ in pts:
+                if site_i >= site_j or abs(xi - xj) > x_thresh:
+                    continue
+                gap = text_y[site_j] - text_y[site_i]
+                if abs(gap) < min_sep:
+                    push = (min_sep - abs(gap)) / 2
+                    sign = 1 if gap >= 0 else -1
+                    text_y[site_i] -= sign * push
+                    text_y[site_j] += sign * push
+                    moved = True
+        if not moved:
+            break
 
-    # Legend for marker style only
+    for site, xt, yt, sig in pts:
+        display = display_site(site)
+        if sig:
+            ax.scatter(xt, yt, s=110, color=PRE_POST_POST_COLOR, zorder=4)
+        else:
+            ax.scatter(xt, yt, s=110, facecolors="none", edgecolors=PRE_POST_POST_COLOR,
+                       linewidths=2.0, zorder=4)
+        ax.annotate(display, (xt, yt), xytext=(9, text_y[site]),
+                    textcoords=("offset points", "data"),
+                    ha="left", va="center", color="black", zorder=5)
+
+    # Legend for marker style only — below the plot (like the bar chart's
+    # legend), with both dots at the same size/edge width for parity.
     from matplotlib.lines import Line2D
     legend_els = [
-        Line2D([0], [0], marker="o", color="w", markerfacecolor="gray",
-               markersize=9, label="post-2000 p<0.05"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=PRE_POST_POST_COLOR,
+               markeredgecolor=PRE_POST_POST_COLOR, markeredgewidth=1.5, markersize=10,
+               label="Significant post-2000 (phase-surrogate p < 0.05)"),
         Line2D([0], [0], marker="o", color="w", markerfacecolor="none",
-               markeredgecolor="gray", markeredgewidth=2, markersize=9, label="post-2000 p≥0.05"),
+               markeredgecolor=PRE_POST_POST_COLOR, markeredgewidth=1.5, markersize=10,
+               label="Not significant post-2000 (phase-surrogate p ≥ 0.05)"),
     ]
-    ax.legend(handles=legend_els, loc="lower right", framealpha=0.85, edgecolor="lightgray")
+    ax.legend(handles=legend_els, loc="upper center", bbox_to_anchor=(0.5, -0.12),
+              ncol=1, frameon=False, labelspacing=1.2)
 
-    ax.set_xlabel(f"Pre-2000 Kendall τ ({metric})")
-    ax.set_ylabel(f"Post-2000 Kendall τ ({metric})")
-    ax.set_title(
-        f"Regime shift: pre- vs post-2000 {metric} trend per catchment\n"
-        "(analytical Kendall τ, p<0.05 = filled marker)",
-    )
+    metric_display = {"TAC": "AC-1", "Var": "Var"}.get(metric, metric)
+    ax.set_xlabel(f"Pre-2000 Kendall τ ({metric_display})")
+    ax.set_ylabel(f"Post-2000 Kendall τ ({metric_display})")
     ax.grid(True, linestyle="--", alpha=0.3, zorder=0)
+    if standalone:
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=300, bbox_inches="tight")
+        print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
+        plt.close(fig)
+
+
+def plot_prepost_combined(
+    results: dict[str, dict[str, pd.DataFrame]],
+    out_path: Path,
+    all_changepoints: dict[str, dict[str, dict[str, list[pd.Timestamp]]]],
+    metric: str = "TAC",
+    n_surrogates: int = 1000,
+) -> None:
+    """
+    Combined figure: plot_tac_pre_post_scatter (a) on the left, side by side
+    with plot_tac_changepoint_bars (b) on the right — the scatter's regime-
+    shift quadrant and the per-catchment pre/post detail in one image.
+    """
+    grid_sites = [s for s in VOD_SITES if s != "VOD"]
+    bar_height_in = 0.55 * len(grid_sites) + 1.8
+    fig, axes = plt.subplots(
+        1, 2, figsize=(13.5, max(6.5, bar_height_in)),
+        gridspec_kw={"width_ratios": [1.0, 1.15]},
+    )
+
+    plot_tac_pre_post_scatter(results, None, all_changepoints, metric=metric,
+                               n_surrogates=n_surrogates, ax=axes[0])
+    plot_tac_changepoint_bars(results, None, all_changepoints, metric=metric,
+                               n_surrogates=n_surrogates, ax=axes[1])
+
+    for letter, a in zip("ab", axes):
+        a.text(-0.02, 1.03, letter, transform=a.transAxes,
+               fontsize=11, fontweight="bold", va="bottom", ha="left")
+
     fig.tight_layout()
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     print(f"  Saved plot: {out_path.relative_to(REPO_ROOT)}")
@@ -2109,7 +2159,9 @@ def main() -> None:
             "Biomass_GCM", "LAI_1_GCM", "LAI_2_GCM", "LAI_3_GCM", "LAI_GCM",
         ]
     elif args.data == "vod-all":
-        datasets = list(VOD_SITES.keys())
+        # "VOD" is a legacy alias for the same CSV as "Cannonsville_NY" — exclude it
+        # here so vod-all doesn't produce a duplicate site's worth of output.
+        datasets = [k for k in VOD_SITES if k != "VOD"]
     else:
         datasets = [args.data]
     analyses       = ["TAC", "Var"] if args.analysis == "all" else [args.analysis]
@@ -2215,9 +2267,16 @@ def main() -> None:
     else:
         base_name = f"{args.data}_{params_suffix}"
 
-    # All output for this run lives under output/{data_param}/
-    run_out_dir = OUT_DIR / args.data
+    # All output for this run lives under output/{data_param}/, except vod-all, which
+    # nests per-site output under output/VOD_all/{SITE}/ and combined multi-site
+    # output under output/VOD_all/combined/{params_suffix}/ — one subdir per run's
+    # parameter combination, so different runs' combined figures never collide.
+    run_out_dir = OUT_DIR / ("VOD_all" if args.data == "vod-all" else args.data)
     run_out_dir.mkdir(parents=True, exist_ok=True)
+    combined_out_dir = (
+        (run_out_dir / "combined" / params_suffix) if args.data == "vod-all" else run_out_dir
+    )
+    combined_out_dir.mkdir(parents=True, exist_ok=True)
 
     run_params = {
         "data":         args.data,
@@ -2233,7 +2292,6 @@ def main() -> None:
 
     all_results:      dict[str, dict[str, pd.DataFrame]] = {}
     all_changepoints: dict[str, dict[str, dict[str, list[pd.Timestamp]]]] = {}
-    all_raw:          dict[str, pd.Series] = {}  # raw monthly series, collected for vod-all plots
 
     for dataset in datasets:
         is_lr = dataset in lr_loaders
@@ -2329,7 +2387,12 @@ def main() -> None:
                 csv_name = f"{dataset}_{label}_{params_suffix}.csv"
             else:
                 csv_name = f"{dataset}_{params_suffix}.csv"
-            csv_path = run_out_dir / csv_name
+            if args.data == "vod-all":
+                site_out_dir = run_out_dir / dataset
+                site_out_dir.mkdir(parents=True, exist_ok=True)
+                csv_path = site_out_dir / csv_name
+            else:
+                csv_path = run_out_dir / csv_name
             df.to_csv(csv_path)
             print(f"  Saved: {csv_path.relative_to(REPO_ROOT)}")
 
@@ -2370,22 +2433,14 @@ def main() -> None:
 
         all_results[dataset] = dataset_results
         all_changepoints[dataset] = dataset_cps
-        if not is_lr:
-            all_raw[dataset] = raw_series[dataset]
 
     # --- Plot + Report ---
     if all_results:
         print("\n  Plotting...")
         use_cps = run_pelt or run_minimax or run_fisher or bool(split_dates)
-        # For vod-all, exclude the legacy "VOD" (Cannonsville) series from the
-        # combined plot — the 10 water-supply catchments are the focus there.
-        plot_results_input = (
-            {k: v for k, v in all_results.items() if k != "VOD"}
-            if args.data == "vod-all" else all_results
-        )
-        png_path = run_out_dir / f"{base_name}.png"
+        png_path = combined_out_dir / f"{base_name}.png"
         plot_results(
-            plot_results_input, analyses,
+            all_results, analyses,
             png_path,
             all_changepoints=all_changepoints if use_cps else None,
             show_summary=use_cps,
@@ -2402,49 +2457,60 @@ def main() -> None:
         # --- vod-all: additional multi-site paper figures ---
         if args.data == "vod-all":
             print("\n  Generating multi-site VOD figures...")
-            plot_raw_vod(
-                all_raw,
-                run_out_dir / f"raw_vod_{params_suffix}.png",
-            )
             plot_vod_multisite(
                 all_results, analyses,
-                run_out_dir / f"vod_multisite_{params_suffix}.png",
+                combined_out_dir / f"multisite_ac1_var_{params_suffix}.png",
                 all_changepoints=all_changepoints if use_cps else None,
-            )
-            plot_significance_heatmap(
-                all_results, analyses,
-                run_out_dir / f"vod_significance_{params_suffix}.png",
-                n_surrogates=n_surrogates,
             )
             plot_vod_tac_grid(
                 all_results,
-                run_out_dir / f"vod_tac_grid_{params_suffix}.png",
+                combined_out_dir / f"ac1_grid_{params_suffix}.png",
+            )
+            plot_vod_tac_var_grid(
+                all_results,
+                combined_out_dir / f"ac1_var_grid_{params_suffix}.png",
             )
             # Split-focused paper figures (only generated when changepoints were used)
             if use_cps:
+                split_grid_names = {"TAC": "ac1_changepoint_grid", "Var": "var_changepoint_grid"}
                 for met in analyses:
+                    grid_name = split_grid_names.get(met, met)
                     plot_vod_split_grid(
                         all_results, met,
-                        run_out_dir / f"vod_split_grid_{met}_{params_suffix}.png",
+                        combined_out_dir / f"{grid_name}_{params_suffix}.png",
                         all_changepoints=all_changepoints,
-                        n_surrogates=min(n_surrogates, 500),
+                        n_surrogates=n_surrogates,
                     )
-                plot_tac_heatmap(
-                    all_results,
-                    run_out_dir / f"vod_tac_heatmap_{params_suffix}.png",
-                    metric="TAC",
-                )
+                    if met == "TAC":
+                        # Same panels, transposed layout: 2 rows x 5 cols
+                        # instead of the default 5 rows x 2 cols.
+                        plot_vod_split_grid(
+                            all_results, met,
+                            combined_out_dir / f"{grid_name}_2x5_{params_suffix}.png",
+                            all_changepoints=all_changepoints,
+                            n_surrogates=n_surrogates,
+                            nrows=2, ncols=5,
+                        )
                 plot_tac_changepoint_bars(
                     all_results,
-                    run_out_dir / f"vod_changepoint_bars_{params_suffix}.png",
+                    combined_out_dir / f"pre_post_arrows_vod_{params_suffix}.png",
                     all_changepoints=all_changepoints,
                     metric="TAC",
+                    n_surrogates=n_surrogates,
                 )
                 plot_tac_pre_post_scatter(
                     all_results,
-                    run_out_dir / f"vod_prepost_scatter_{params_suffix}.png",
+                    combined_out_dir / f"pre_post_scatter_{params_suffix}.png",
                     all_changepoints=all_changepoints,
                     metric="TAC",
+                    n_surrogates=n_surrogates,
+                )
+                plot_prepost_combined(
+                    all_results,
+                    combined_out_dir / f"pre_post_combined_{params_suffix}.png",
+                    all_changepoints=all_changepoints,
+                    metric="TAC",
+                    n_surrogates=n_surrogates,
                 )
 
         # For ensembled L-Range datasets, also save each model's (and the

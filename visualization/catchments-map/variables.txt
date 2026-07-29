@@ -1,0 +1,13 @@
+site	Catchment name
+meanVPD	Growing-season mean vapor-pressure deficit, 2001–2020 (kPa)
+meanT	Growing-season mean 2-m air temperature, 2001–2020 (°C)
+meanSM	Growing-season mean surface soil moisture, 2001–2020
+bvpd_present	β_VPD in the present period (2001–2020)
+bvpd_early	β_VPD in the early period (1982–2000)
+reorg	bvpd_present − bvpd_early
+bsm_present	β_SM (soil moisture) in 2001–2020 
+brg_present	β_Rg (radiation) in 2001–2020
+blai_present	β_LAI (leaf area) in 2001–2020
+bvperp_present	2001–2020 β_VPD⊥ radiation-independent VPD sensitivity (residualized)
+bvperp_early	β_VPD⊥ (residualized) in 1982–2000
+reorg_ortho	bvperp_present − bvperp_early: the radiation-independent "reorganization"

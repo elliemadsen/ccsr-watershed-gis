@@ -75,8 +75,19 @@ import csd_analysis as csd  # reuses load_vod / load_lai_gimms / load_lai_modis 
 
 OUT_DIR = Path(__file__).parent / "events"
 
+# Cannonsville, NY — smaller sub-basins-bbox boundary (data/sub-basins/Subbasins.shp
+# extent), distinct from csd_analysis.py's VOD_CSV/load_vod(), which uses the larger
+# Cannonsville_NY catchment rectangle. csd_analysis.py is left untouched; this loader
+# reuses its CSV-reading logic but points at the smaller-boundary file directly.
+CANNONSVILLE_SMALL_CSV = csd.VOD_DIR / "VODCA_CXKu_Cannonsville.csv"
+
+
+def load_vod_cannonsville_small() -> pd.Series:
+    return csd._load_vod_csv(CANNONSVILLE_SMALL_CSV, "VOD", csd.MIN_OBS_MONTHLY)
+
+
 DATA_LOADERS = {
-    "VOD": csd.load_vod,
+    "VOD": load_vod_cannonsville_small,
     "LAI_GIMMS": csd.load_lai_gimms,
     "LAI_MODIS": csd.load_lai_modis,
 }
@@ -201,14 +212,19 @@ def detect_perturbations(deriv_smoothed: pd.Series, percentile: float = PERCENTI
 # Plotting
 # ---------------------------------------------------------------------------
 
-RESIDUAL_COLOR = "mediumseagreen"   # light green
-DERIVATIVE_COLOR = "tab:blue"
+# Style guide palette: magma colormap, sampled at fixed points for consistency
+# with the other figures in this project (see csd_analysis.py VOD_SITE_COLORS).
+_magma = plt.cm.magma
+RESIDUAL_COLOR   = _magma(0.42)
+DERIVATIVE_COLOR = _magma(0.68)
+POSITIVE_COLOR   = _magma(0.80)   # greening (positive) perturbation
+NEGATIVE_COLOR   = _magma(0.22)   # browning (negative) perturbation
 EVENT_LABEL_FMT = "%b %Y"           # e.g. "Jul 1994"
 
 
-def _event_color(peak_value: float) -> str:
-    """Green for a positive (greening) perturbation, red for negative (browning)."""
-    return "tab:green" if peak_value > 0 else "tab:red"
+def _event_color(peak_value: float):
+    """Magma high sample for a positive (greening) perturbation, low sample for negative (browning)."""
+    return POSITIVE_COLOR if peak_value > 0 else NEGATIVE_COLOR
 
 
 def _annotate_event(ax: plt.Axes, ev: pd.Series, color: str) -> None:
@@ -227,13 +243,12 @@ def _add_yearly_ticks(ax: plt.Axes) -> None:
 
 
 def plot_results(residual: pd.Series, deriv_smoothed: pd.Series,
-                  events: pd.DataFrame, method: str, out_path: Path,
+                  events: pd.DataFrame, out_path: Path,
                   data_name: str = "VOD") -> None:
     fig, axes = plt.subplots(2, 1, figsize=(12, 7), sharex=True)
 
     axes[0].plot(residual.index, residual.values, color=RESIDUAL_COLOR, lw=1)
     axes[0].set_ylabel(f"{data_name} residual")
-    axes[0].set_title(f"{data_name} residual time series with detected perturbations ({method})")
     axes[0].text(0.01, 0.97, "a", transform=axes[0].transAxes,
                  fontsize=11, fontweight="bold", va="top", ha="left")
     for _, ev in events.iterrows():
@@ -249,8 +264,8 @@ def plot_results(residual: pd.Series, deriv_smoothed: pd.Series,
     axes[1].margins(y=0.15)
     if not events.empty:
         thresh = events["threshold"].iloc[0]
-        axes[1].axhline(thresh, color="tab:green", lw=0.8, ls=":")
-        axes[1].axhline(-thresh, color="tab:red", lw=0.8, ls=":")
+        axes[1].axhline(thresh, color=POSITIVE_COLOR, lw=0.8, ls=":")
+        axes[1].axhline(-thresh, color=NEGATIVE_COLOR, lw=0.8, ls=":")
         for _, ev in events.iterrows():
             color = _event_color(ev["peak_value"])
             axes[1].scatter(ev["peak_date"], ev["peak_value"], color=color, zorder=5)
@@ -268,18 +283,17 @@ def plot_results(residual: pd.Series, deriv_smoothed: pd.Series,
 
 
 def plot_derivative_only(deriv_smoothed: pd.Series, events: pd.DataFrame,
-                          method: str, out_path: Path, data_name: str = "VOD") -> None:
+                          out_path: Path) -> None:
     fig, ax = plt.subplots(figsize=(12, 4))
 
     ax.plot(deriv_smoothed.index, deriv_smoothed.values, color=DERIVATIVE_COLOR, lw=1)
     ax.margins(y=0.15)
     ax.set_ylabel("Smoothed derivative")
     ax.set_xlabel("Date")
-    ax.set_title(f"{data_name} smoothed derivative with detected perturbations ({method})")
     if not events.empty:
         thresh = events["threshold"].iloc[0]
-        ax.axhline(thresh, color="tab:green", lw=0.8, ls=":")
-        ax.axhline(-thresh, color="tab:red", lw=0.8, ls=":")
+        ax.axhline(thresh, color=POSITIVE_COLOR, lw=0.8, ls=":")
+        ax.axhline(-thresh, color=NEGATIVE_COLOR, lw=0.8, ls=":")
         for _, ev in events.iterrows():
             color = _event_color(ev["peak_value"])
             ax.scatter(ev["peak_date"], ev["peak_value"], color=color, zorder=5)
@@ -364,11 +378,11 @@ def main() -> None:
 
         if not args.no_plot:
             plot_path = data_out_dir / f"{data_name}_perturbations_{tag}.png"
-            plot_results(residual, smoothed, events, method, plot_path, data_name=data_name)
+            plot_results(residual, smoothed, events, plot_path, data_name=data_name)
             print(f"Saved: {plot_path}")
 
             deriv_plot_path = data_out_dir / f"{data_name}_perturbations_{tag}_derivative_only.png"
-            plot_derivative_only(smoothed, events, method, deriv_plot_path, data_name=data_name)
+            plot_derivative_only(smoothed, events, deriv_plot_path)
             print(f"Saved: {deriv_plot_path}")
 
 
